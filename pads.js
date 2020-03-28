@@ -3,8 +3,8 @@ const calcOffset = v => v >= 0 ? v - (v | 0) : 1 - calcOffset(-v)
 const debug = window.debug = {}
 
 const colors = {
-  grid: '#fff', //'#222222',
-  square: '#333'
+  grid: '#000', //'#222222',
+  square: '#000'
 }
 
 export default function (el) {
@@ -15,17 +15,39 @@ export default function (el) {
 
   let squares = debug.squares = localStorage.squares ? JSON.parse(localStorage.squares) : {}
 
-  const mouse = debug.mouse = {
+  const controls = debug.controls = {
     down: false,
-    x: 0, y: 0, // absolute position
+    ox: 0, oy: 0, od: 0, // old position
+    x: 0, y: 0, d: 0, // absolute position
     rx: 0, ry: 0, // relative position
     nx: 0, ny: 0, // normalized position
     parseEvent (e) {
-      this.setPosition({ x: e.clientX, y: e.clientY })
+      let x, y, d = 0
+      if (e.targetTouches) {
+        if (e.targetTouches.length >= 1) {
+          x = e.targetTouches[0].pageX
+          y = e.targetTouches[0].pageY
+        }
+        if (e.targetTouches.length >= 2) {
+          d = Math.sqrt(
+            Math.pow(e.targetTouches[1].pageX - x, 2) +
+            Math.pow(e.targetTouches[1].pageY - y, 2)
+          ) / 400
+        }
+      } else {
+        x = e.clientX
+        y = e.clientY
+        d = (e.deltaY || 0) / 1000
+      }
+      return { x, y, d }
     },
-    setPosition ({ x, y }) {
+    update ({ x = this.x, y = this.y, d = this.d }) {
+      this.ox = this.x
+      this.oy = this.y
+      this.od = this.d
       this.x = x
       this.y = y
+      this.d = d
       this.rx = x / screen.zoom - screen.shift.x
       this.ry = y / screen.zoom - screen.shift.y
       this.nx = Math.floor(this.rx)
@@ -47,14 +69,12 @@ export default function (el) {
     },
     zoom: 50,
     setZoom (zoom) {
-      this.zoom = localStorage.zoom = Math.max(5, Math.min(500, zoom))
+      this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.log(this.canvas.height * .93), Math.log(this.canvas.width * .93), zoom)) || 50
+      this.zoom = Math.max(2, Math.min(this.canvas.height * .93, this.canvas.width * .93, Math.exp(this.nzoom)))
       this.size.width = this.canvas.width / this.zoom
       this.size.height = this.canvas.height / this.zoom
     }
   }
-
-  screen.setShift(localStorage.shift ? JSON.parse(localStorage.shift) : { x: 0, y: 0 })
-  screen.setZoom(localStorage.zoom || 50)
 
   function resize() {
     screen.canvas.width = canvas.width = document.documentElement.clientWidth
@@ -130,14 +150,14 @@ export default function (el) {
     context.save()
 
     context.strokeStyle = colors.grid
-    context.lineWidth = 1
+    context.lineWidth = Math.min(1, .02 + screen.zoom / 55)
 
     for (let x = 0; x < screen.size.width; x++) {
-      drawHorizontalLine((x * screen.zoom + screen.offset.x * screen.zoom | 0) - .5)
+      drawHorizontalLine(Math.floor(x * screen.zoom + screen.offset.x * screen.zoom) - .5)
     }
 
     for (let y = 0; y < screen.size.height; y++) {
-      drawVerticalLine((y * screen.zoom + screen.offset.y * screen.zoom | 0) - .5)
+      drawVerticalLine(Math.floor(y * screen.zoom + screen.offset.y * screen.zoom) - .5)
     }
 
     context.restore()
@@ -148,60 +168,86 @@ export default function (el) {
     drawSquares()
   }
 
-  window.addEventListener('wheel', e => {
+
+  function handleZoom (e, noUpdate = false) {
     e.preventDefault()
-    mouse.parseEvent(e)
-
-    // the delta coefficients are arbitrary values tuned manually for my trackpad (ThinkPad X1)
-    const delta = Math.pow(3, -e.deltaY / 2000)
-
-    // keep zoom over a minimum value and avoid fractions
-    screen.setZoom(Math[e.deltaY > 0 ? 'floor' : 'ceil'](screen.zoom * delta))
-
+    if (!noUpdate) controls.update(controls.parseEvent(e))
+    // TODO: replace 'nzoom'
+    screen.setZoom(screen.nzoom - (noUpdate ? controls.od - controls.d : controls.d))
+    // TODO: this should be a normalized method
     screen.setShift({
-      x: mouse.x / screen.zoom - mouse.rx,
-      y: mouse.y / screen.zoom - mouse.ry
+      x: controls.x / screen.zoom - controls.rx,
+      y: controls.y / screen.zoom - controls.ry
     })
-
+    if (noUpdate) return
     clear()
     render()
-  }, { passive: false })
+  }
 
   window.addEventListener('resize', () => {
     resize()
+    screen.setZoom(screen.nzoom)
     render()
   })
 
-  window.addEventListener('mousedown', e => {
-    mouse.parseEvent(e)
-    mouse.down = true
+  function handleDown (e) {
+    controls.update(controls.parseEvent(e))
+    controls.down = true
     timer = performance.now()
-  })
+  }
 
-  window.addEventListener('mousemove', e => {
-    if (mouse.down) {
-      if (timer && Math.abs(e.clientX - mouse.x) < 6 && Math.abs(e.clientY - mouse.y) < 6) return
+  function handleMove (e) {
+    e.preventDefault()
+    if (controls.down) {
+      const { x, y, d } = controls.parseEvent(e)
+      if (d) {
+        controls.update({ d })
+        handleZoom(e, true)
+      } else {
+        if (timer && Math.abs(x - controls.x) < 6 && Math.abs(y - controls.y) < 6) return
+      }
       timer = 0
-      const ox = mouse.x
-      const oy = mouse.y
-      mouse.parseEvent(e)
-      screen.setShift({
-        x: screen.shift.x - (ox - mouse.x) / screen.zoom, /// screen.zoom,
-        y: screen.shift.y - (oy - mouse.y) / screen.zoom/// screen.zoom
-      })
+      const dx = controls.x - x
+      const dy = controls.y - y
+      // if diffs are too large then it's probably a pinch error, so discard
+      if (Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+        screen.setShift({
+          x: screen.shift.x - (controls.x - x) / screen.zoom,
+          y: screen.shift.y - (controls.y - y) / screen.zoom
+        })
+      }
+      controls.update({ x, y, d })
       clear()
       render()
     }
-  })
+  }
+
+  window.addEventListener('wheel', handleZoom, { passive: false })
+  window.addEventListener('mousedown', handleDown, { passive: false })
+  window.addEventListener('touchstart', handleDown, { passive: false })
+  window.addEventListener('mousemove', handleMove, { passive: false })
+  window.addEventListener('touchmove', handleMove, { passive: false })
 
   window.addEventListener('mouseup', () => {
-    mouse.down = false
+    controls.down = false
     if (performance.now() - timer < 200) {
-      toggleSquare({ x: mouse.nx, y: mouse.ny })
+      toggleSquare({ x: controls.nx, y: controls.ny })
     }
   })
 
   resize()
+  screen.setShift(localStorage.shift ? JSON.parse(localStorage.shift) : { x: 0, y: 0 })
+  screen.setZoom(localStorage.zoom || 50)
   render()
   el.appendChild(canvas)
 }
+
+// begin.onmousedown = function toggleFullScreen(e) {
+//   e.stopPropagation()
+//   e.preventDefault()
+//   begin.parentNode.removeChild(begin)
+//   if (!document.fullscreenElement) {
+//     document.documentElement.requestFullscreen()
+//   }
+//   return false
+// }

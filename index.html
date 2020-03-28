@@ -8,13 +8,38 @@
         height: 100%;
         margin: 0;
         padding: 0;
-        background: #000;
+        background: #fff;
         overflow: hidden;
+      }
+      #begin {
+        display: flex;
+        position: fixed;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,.75);
+        align-items: center;
+        justify-content: space-around;
+      }
+      #begin button {
+        display: flex;
+        background: #3f3;
+        border: none;
+        box-shadow: 0 0 0 20px #222;
+        color: #000;
+        width: 30%;
+        height: 25%;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        letter-spacing: 10px;
       }
     </style>
     <link rel="stylesheet" href="./pads.css">
   </head>
   <body>
+    <!-- <div id="begin"><button>BEGIN</button></div> -->
     <div id="container"></div>
     <script type="module">
       import pads from './pads.js'
