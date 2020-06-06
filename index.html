@@ -43,7 +43,10 @@
     <div id="container"></div>
     <script type="module">
       import pads from './pads.js'
-      pads(container)
+      const onchange = ({ audible }) => {
+        console.log(audible)
+      }
+      const { squares } = pads(container, { onchange })
     </script>
   </body>
 </html>

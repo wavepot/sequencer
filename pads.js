@@ -4,16 +4,19 @@ const debug = window.debug = {}
 
 const colors = {
   grid: '#000', //'#222222',
-  square: '#000'
+  square: '#000',
+  pointer: '#444',
 }
 
-export default function (el) {
+export default function (el, { onchange } = { onchange: () => {} }) {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
 
   let timer = 0
 
   let squares = debug.squares = localStorage.squares ? JSON.parse(localStorage.squares) : {}
+
+  let pointers = debug.pointers = []
 
   const controls = debug.controls = {
     down: false,
@@ -99,48 +102,71 @@ export default function (el) {
     context.stroke()
   }
 
-  const drawSquare = pos => {
-    const [x, y] = pos.split(',')
-    if (x >= Math.floor(-screen.shift.x) && y >= Math.floor(-screen.shift.y)
-      && x <= Math.ceil(-screen.shift.x) + screen.size.width && y <= Math.ceil(-screen.shift.y) + screen.size.height) {
-      context.fillStyle = colors.square
-      context.fillRect(
-        Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
-        Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
-        screen.zoom + 1,
-        screen.zoom + 1
-      )
-    }
+  const hashPosToXY = hashPos => hashPos.split(',')
+
+  const drawSquare = (hashPos) => {
+    const [x, y] = hashPosToXY(hashPos)
+    context.fillStyle = colors.square
+    context.fillRect(
+      Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
+      Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
+      screen.zoom + 1,
+      screen.zoom + 1
+    )
   }
 
-  const clearSquare = pos => {
-    const [x, y] = pos.split(',')
-    if (x >= Math.floor(-screen.shift.x) && y >= Math.floor(-screen.shift.y)
-      && x <= Math.ceil(-screen.shift.x) + screen.size.width && y <= Math.ceil(-screen.shift.y) + screen.size.height) {
-      context.clearRect(
-        Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
-        Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
-        screen.zoom + 1,
-        screen.zoom + 1
-      )
-    }
+  const drawPointer = (hashPos) => {
+    const [x, y] = hashPosToXY(hashPos)
+    context.fillStyle = colors.pointer
+    context.fillRect(
+      Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
+      Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
+      screen.zoom + 1,
+      screen.zoom + 1
+    )
+  }
+
+  const isVisibleSquare = (hashPos) => {
+    const [x, y] = hashPosToXY(hashPos)
+    return (
+      x >= Math.floor(-screen.shift.x) &&
+      y >= Math.floor(-screen.shift.y) &&
+      x <= Math.ceil(-screen.shift.x + screen.size.width) &&
+      y <= Math.ceil(-screen.shift.y + screen.size.height)
+    )
+  }
+
+  const isAudibleSquare = (hashPos) => {
+    const [x, y] = hashPosToXY(hashPos)
+    return (
+      x > Math.floor(-screen.shift.x) &&
+      y > Math.floor(-screen.shift.y) &&
+      x < Math.floor(-screen.shift.x + screen.size.width) &&
+      y < Math.floor(-screen.shift.y + screen.size.height)
+    )
   }
 
   const drawSquares = () => {
-    Object.keys(squares).forEach(drawSquare)
+    const visible = Object.keys(squares).filter(isVisibleSquare)
+    visible.forEach(drawSquare)
+    const audible = Object.keys(squares).filter(isAudibleSquare)
+    audible.forEach(drawPointer)
+    onchange({ visible, audible })
   }
 
-  const toggleSquare = pos => {
-    const hash = `${pos.x},${pos.y}`
+  const posToHash = pos => `${pos.x},${pos.y}`
 
-    if (hash in squares) {
-      delete squares[hash]
+  const toggleSquare = pos => {
+    const hashPos = posToHash(pos)
+
+    if (hashPos in squares) {
+      delete squares[hashPos]
       // clearSquare(hash)
       clear()
       render()
     } else {
-      squares[hash] = true
-      drawSquare(hash)
+      squares[hashPos] = true
+      drawSquare(hashPos)
     }
 
     localStorage.squares = JSON.stringify(squares)
@@ -163,11 +189,43 @@ export default function (el) {
     context.restore()
   }
 
+  function createPointer () {
+    const pointer = {
+      x: 0,
+      y: 0,
+      vel: { x: 1, y: 0 },
+      area: {},
+      visited: {},
+      inArea: pos => posToHash(pos) in this.area,
+      hasVisited: pos => posToHash(pos) in this.visited,
+      advance () {
+        if (Object.keys(area).length === 0) return
+        if (Object.keys(area).length === Object.keys(visited).length) {
+          visited = {}
+        }
+
+        let next
+        next = { x: this.x + this.vel.x, y: this.y + this.vel.y }
+        if (this.attempt(pos)) return
+        this.vel.y =
+        next = { x: this.x + this.vel.x, y: this.y + this.vel.y }
+        if (this.attempt(pos)) return
+      },
+      attempt (pos) {
+        if (this.hasVisited(pos)) return false
+        this.x = pos.x
+        this.y = pos.y
+        return true
+      }
+    }
+
+    pointers.push(pointer)
+  }
+
   function render () {
     drawGrid()
     drawSquares()
   }
-
 
   function handleZoom (e, noUpdate = false) {
     e.preventDefault()
@@ -240,6 +298,7 @@ export default function (el) {
   screen.setZoom(localStorage.zoom || 50)
   render()
   el.appendChild(canvas)
+  return { squares }
 }
 
 // begin.onmousedown = function toggleFullScreen(e) {
