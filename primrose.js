@@ -276,7 +276,7 @@ class Cursor {
 }
 
 // A selection of fonts for preferred monospace rendering.
-const monospaceFamily = "'Inconsolata', 'Ubuntu Mono', 'Droid Sans Mono', 'Consolas', 'Lucida Console', 'Courier New', 'Courier', monospace";
+const monospaceFamily = "'Inconsolata', 'Liberation Mono', 'Droid Sans Mono', 'Consolas', 'Lucida Console', 'Courier New', 'Courier', monospace";
 
 class Row {
     constructor(txt, tokens, startStringIndex, startTokenIndex, lineNumber) {
@@ -351,9 +351,9 @@ Row.emptyRow = (startStringIndex, startTokenIndex, lineNumber) => new Row("", []
 const Dark = Object.freeze({
     name: "Dark",
     cursorColor: "white",
-    unfocused: "rgba(0, 0, 255, 0.25)",
+    unfocused: "rgba(0, 0, 0, 0)",
     currentRowBackColor: "#202020",
-    selectedBackColor: "#404040",
+    selectedBackColor: "#000",
     lineNumbers: {
         foreColor: "white"
     },
@@ -397,14 +397,14 @@ const Dark = Object.freeze({
 const Light = Object.freeze({
     name: "Light",
     cursorColor: "black",
-    unfocused: "rgba(0, 0, 255, 0.25)",
+    unfocused: "rgba(0, 0, 0, 0)",
     currentRowBackColor: "#f0f0f0",
-    selectedBackColor: "#c0c0c0",
+    selectedBackColor: "#000",
     lineNumbers: {
         foreColor: "black"
     },
     regular: {
-        backColor: "white",
+        backColor: "black",
         foreColor: "black"
     },
     strings: {
@@ -2501,14 +2501,25 @@ const JavaScript = new Grammar("JavaScript", [
     ["whitespace", /(?:\s+)/],
     ["startBlockComments", /\/\*/],
     ["endBlockComments", /\*\//],
-    ["regexes", /(?:^|,|;|\(|\[|\{)(?:\s*)(\/(?:\\\/|[^\n\/])+\/)/],
+    // ["regexes", /(?:^|,|;|\(|\[|\{)(?:\s*)(\/(?:\\\/|[^\n\/])+\/)/],
     ["stringDelim", /("|'|`)/],
     ["startLineComments", /\/\/.*$/m],
     ["numbers", /-?(?:(?:\b\d*)?\.)?\b\d+\b/],
-    ["keywords",
-        /\b(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|finally|for|function|if|import|in|instanceof|let|new|return|super|switch|this|throw|try|typeof|var|void|while|with)\b/
-    ],
+    // ["keywords",
+    //     /\b(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|finally|for|function|if|import|in|instanceof|let|new|return|super|switch|this|throw|try|typeof|var|void|while|with)\b/
+    // ],
+    ["operators", /!|>=?|<=?|={1,3}|(?:&){1,2}|\|?\||\?|\*|\/|~|\^|%|\.(?!\d)|\+{1,2}|\-{1,2}/],
+    // ['functions', / ((?!\d|[. ]*?(if|else|do|for|case|try|catch|while|with|switch))[a-zA-Z0-9_ $]+)(?=\(.*\).*{)/],
+    ['declare', /\b(function|interface|class|var|let|const|enum|void)\b/],
+    ['keywords', /\b(break|case|catch|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|if|implements|import|in|instanceof|interface|let|new|package|private|protected|public|return|static|super|switch|throw|try|typeof|while|with|yield)\b/],
+    ['builtin', /\b(Object|Function|Boolean|Error|EvalError|InternalError|RangeError|ReferenceError|StopIteration|SyntaxError|TypeError|URIError|Number|Math|Date|String|RegExp|Array|Float32Array|Float64Array|Int16Array|Int32Array|Int8Array|Uint16Array|Uint32Array|Uint8Array|Uint8ClampedArray|ArrayBuffer|DataView|JSON|Intl|arguments|console|window|document|Symbol|Set|Map|WeakSet|WeakMap|Proxy|Reflect|Promise)\b/],
+    ['special', /\b(true|false|null|undefined)\b/],
+    // ['params', /function[ \(]{1}[^]*?\{/],
+    ['numbers', /-?\b(0x[\dA-Fa-f]+|\d*\.?\d+([Ee][+-]?\d+)?|NaN|-?Infinity)\b/],
+    ['regexes', /(?![^\/])(\/(?![\/|\*]).*?[^\\\^]\/)([;\n\.\)\]\} gim])/],
+
     ["functions", /(\w+)(?:\s*\()/],
+    ['symbol', /[{}[\](),:]/],
     ["members", /(\w+)\./],
     ["members", /((\w+\.)+)(\w+)/]
 ]);
@@ -2694,10 +2705,10 @@ class Primrose extends EventTarget {
         const renderCanvasBackground = () => {
             const minCursor = Cursor.min(frontCursor, backCursor),
                 maxCursor = Cursor.max(frontCursor, backCursor),
-                clearFunc = theme.regular.backColor ? "fillRect" : "clearRect";
+                clearFunc = 'fillRect' //theme.regular.backColor ? "fillRect" : "clearRect";
 
             if (clearFunc === "fillRect") {
-                bgfx.fillStyle = theme.regular.backColor;
+                bgfx.fillStyle = '#000' //theme.regular.backColor;
             }
             bgfx[clearFunc](0, 0, canv.width, canv.height);
             bgfx.save();
@@ -2739,7 +2750,7 @@ class Primrose extends EventTarget {
                             const selectionFront = Cursor.max(minCursor, tokenFront),
                                 selectionBack = Cursor.min(maxCursor, tokenBack),
                                 cw = selectionBack.i - selectionFront.i;
-                            fillRect(bgfx, theme.selectedBackColor ||
+                            fillRect(bgfx, '#000' || theme.selectedBackColor ||
                                 Dark.selectedBackColor,
                                 selectionFront.x, selectionFront.y,
                                 cw, 1);
@@ -2829,7 +2840,7 @@ class Primrose extends EventTarget {
 
             if (showLineNumbers) {
                 fillRect(tgfx,
-                    theme.selectedBackColor ||
+                    '#000' || theme.selectedBackColor ||
                     Dark.selectedBackColor,
                     0, 0,
                     gridBounds.x, this.width - padding * 2);
@@ -2899,8 +2910,8 @@ class Primrose extends EventTarget {
 
             tgfx.restore();
             if (!focused) {
-                tgfx.fillStyle = theme.unfocused || Dark.unfocused;
-                tgfx.fillRect(0, 0, canv.width, canv.height);
+                // tgfx.fillStyle = '#000' || theme.unfocused || Dark.unfocused;
+                // tgfx.fillRect(0, 0, canv.width, canv.height);
             }
         };
 
@@ -4432,7 +4443,7 @@ class Primrose extends EventTarget {
             = fgfx.imageSmoothingEnabled
             = bgfx.imageSmoothingEnabled
             = tgfx.imageSmoothingEnabled
-            = false;
+            = true;
         context.textBaseline
             = fgfx.textBaseline
             = bgfx.textBaseline
@@ -4473,7 +4484,8 @@ class Primrose extends EventTarget {
         this.value = currentValue;
         //<<<<<<<<<< INITIALIZE STATE <<<<<<<<<<
 
-        render = doRender //() => {
+        render = doRender
+        // () => {
             // requestAnimationFrame(doRender);
         // };
         doRender();

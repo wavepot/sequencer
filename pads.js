@@ -1,6 +1,6 @@
 import { Basic, Dark, Grammar, HTML, JavaScript, Light, PlainText, Primrose, grammars, themes } from './primrose.js'
 
-const calcOffset = v => v >= 0 ? v - (v | 0) : 1 - calcOffset(-v)
+const calcOffset = v => v >= 0 ? v - Math.floor(v) : 1 - calcOffset(-v)
 
 const debug = window.debug = {}
 
@@ -33,7 +33,7 @@ const theme = {
         fontStyle: "italic"
     },
     numbers: {
-        foreColor: "#f7f"
+        foreColor: "#e7e"
     },
     comments: {
         foreColor: "#555",
@@ -42,12 +42,25 @@ const theme = {
     keywords: {
         foreColor: "#f33"
     },
+    operators: {
+        foreColor: "#f33"
+    },
+    declare: {
+        foreColor: "#7af"
+    },
     functions: {
-        foreColor: "#fff",
+        foreColor: "#7f4",
         // fontWeight: "bold"
     },
+    special: {
+        foreColor: "#e7e",
+        // fontWeight: "bold"
+    },
+    symbol: {
+      foreColor: '#fff'
+    },
     members: {
-        foreColor: "#3ef"
+        foreColor: "#7af"// "#6bf"
     },
     error: {
         foreColor: "red",
@@ -55,10 +68,10 @@ const theme = {
     }
 }
 
-export default function (el, { onchange } = { onchange: () => {} }) {
+export default function yep (el, { onchange } = { onchange: () => {} }) {
   const canvas = document.createElement('canvas')
-  const context = canvas.getContext('2d', { alpha: false })
-
+  const context = canvas.getContext('2d')
+context.imageSmoothingEnabled = true
   let timer = 0
 
   let squares = debug.squares = localStorage.squares ? JSON.parse(localStorage.squares) : {}
@@ -115,15 +128,16 @@ export default function (el, { onchange } = { onchange: () => {} }) {
     setShift ({ x, y }) {
       this.shift.x = x
       this.shift.y = y
-      this.offset.x = calcOffset(x)
-      this.offset.y = calcOffset(y)
+      this.offset.x = calcOffset(this.shift.x)
+      this.offset.y = calcOffset(this.shift.y)
       localStorage.shift = JSON.stringify(this.shift)
     },
     zoom: 50,
+    maxScreenZoom: 6,
     setZoom (zoom) {
-      this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.max(Math.log(this.canvas.height * 2), Math.log(this.canvas.width * 2)), zoom)) || 50
+      this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.max(Math.log(this.canvas.height * this.maxScreenZoom), Math.log(this.canvas.width * this.maxScreenZoom)), zoom)) || 50
       // this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.log(this.canvas.height * .93), Math.log(this.canvas.width * .93), zoom)) || 50
-      this.zoom = Math.max(2, Math.min(Math.max(this.canvas.height * 2, this.canvas.width * 2), Math.exp(this.nzoom)))
+      this.zoom = Math.max(2, Math.min(Math.max(this.canvas.height * this.maxScreenZoom, this.canvas.width * this.maxScreenZoom), Math.exp(this.nzoom)))
       // this.zoom = Math.max(2, Math.min(this.canvas.height * .93, this.canvas.width * .93, Math.exp(this.nzoom)))
       if (this.zoom > 22) {
         if (Date.now() - zoomStart < 350) {
@@ -137,55 +151,54 @@ export default function (el, { onchange } = { onchange: () => {} }) {
   }
 
   const getEditor = (hashPos) => {
+    if (screen.zoom < 45) return
     let editor = editors[hashPos]
     if (!editor) {
-      let flipSize = screen.zoom
+      let flipSize // = screen.zoom
       const flipThreshold = 330
+      let newX = 512, newY = 512
       editor = editors[hashPos] = {
         instance: new Primrose({
           theme,
           wordWrap: false,
           lineNumbers: false,
           fontSize: 32,
-          padding: 20,
+          padding: 30,
           width: 1024, //flipSize ? 1024+512 : 1024,
           height: 1024, //flipSize ? 1024+512 : 1024,
           scaleFactor: 1,
         }),
         drawToSquare() {
-          if (screen.zoom < 45) return
           const [x, y] = hashPosToXY(hashPos)
+          const maxWidth = screen.canvas.width
+          const maxHeight = screen.canvas.height
+          let p = 1
           if (screen.zoom > flipThreshold && flipSize !== screen.zoom) { //} && !flipSize) {
             flipSize = screen.zoom
-            editor.instance.setSize(
-              512 + Math.min(1100, (screen.zoom-flipThreshold)*1.6),
-              512 + Math.min(1100, (screen.zoom-flipThreshold)*1.6)
-            )
-            // editor.drawToSquare()
-            // console.log('set size')
+
+            newX = 512 + Math.min(screen.canvas.width+flipThreshold+1000, (screen.zoom-flipThreshold)*1.6)
+            newY = 512 + Math.min(screen.canvas.width+flipThreshold+1000, (screen.zoom-flipThreshold)*1.6)
+            // p = newX / newY
+            // console.log(p)
+            editor.instance.setSize(newX, newY)
           } else if (screen.zoom <= flipThreshold && flipSize) {
             flipSize = false
-            editor.instance.setSize(
-              512,
-              512
-            )
-            // editor.drawToSquare()
+            editor.instance.setSize(512, 512)
           }
-          // else {
-            context.drawImage(
+// context.translate(0.5,0.5);
+
+          context.drawImage(
             editor.instance.canvas,
             Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
             Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
             Math.floor(screen.zoom) + 1,
             Math.floor(screen.zoom) + 1
           )
-
-          // }
         }
       }
       editor.instance.theme = theme
       editor.instance.addEventListener("change", editor.drawToSquare);
-      editor.instance.value = handleMove.toString()
+      editor.instance.value = getEditor.toString()
       setTimeout(() => {
         editor.drawToSquare()
       }, 100)
@@ -231,7 +244,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       screen.zoom + 1
     )
 
-    getEditor(hashPos).drawToSquare()
+    getEditor(hashPos)?.drawToSquare()
     // context.drawImage(
     //   editor.canvas,
     //   Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
@@ -254,7 +267,8 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       screen.zoom + 1,
       screen.zoom + 1
     )
-        getEditor(hashPos).drawToSquare()
+
+    getEditor(hashPos)?.drawToSquare()
     // if (screen.zoom > 100) {
     // }
 
@@ -395,8 +409,8 @@ export default function (el, { onchange } = { onchange: () => {} }) {
     screen.setZoom(screen.nzoom - (noUpdate ? controls.od - controls.d : controls.d))
     // TODO: this should be a normalized method
     screen.setShift({
-      x: controls.x / screen.zoom - controls.rx,
-      y: controls.y / screen.zoom - controls.ry
+      x: Math.max(-controls.nx, controls.x / screen.zoom - (controls.rx - (controls.rx - (controls.nx + .75)) *.12)),
+      y: Math.max(-controls.ny, controls.y / screen.zoom - (controls.ry - (controls.ry - (controls.ny + .75)) *.12))
     })
     if (noUpdate) return
     // clear()
