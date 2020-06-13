@@ -5,6 +5,7 @@ const calcOffset = v => v >= 0 ? v - (v | 0) : 1 - calcOffset(-v)
 const debug = window.debug = {}
 
 const colors = {
+  back: '#fff',
   grid: '#000', //'#222222',
   square: '#000',
   pointer: '#000',
@@ -21,7 +22,7 @@ const theme = {
     },
     regular: {
         backColor: "black",
-        foreColor: "#ccc"
+        foreColor: "#fff"
     },
     strings: {
         foreColor: "#aa9900",
@@ -32,7 +33,7 @@ const theme = {
         fontStyle: "italic"
     },
     numbers: {
-        foreColor: "#5cf"
+        foreColor: "#f7f"
     },
     comments: {
         foreColor: "#555",
@@ -46,7 +47,7 @@ const theme = {
         // fontWeight: "bold"
     },
     members: {
-        foreColor: "#999"
+        foreColor: "#3ef"
     },
     error: {
         foreColor: "red",
@@ -120,14 +121,16 @@ export default function (el, { onchange } = { onchange: () => {} }) {
     },
     zoom: 50,
     setZoom (zoom) {
-      this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.log(this.canvas.height * .93), Math.log(this.canvas.width * .93), zoom)) || 50
-      this.zoom = Math.max(2, Math.min(this.canvas.height * .93, this.canvas.width * .93, Math.exp(this.nzoom)))
+      this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.max(Math.log(this.canvas.height * 2), Math.log(this.canvas.width * 2)), zoom)) || 50
+      // this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.log(this.canvas.height * .93), Math.log(this.canvas.width * .93), zoom)) || 50
+      this.zoom = Math.max(2, Math.min(Math.max(this.canvas.height * 2, this.canvas.width * 2), Math.exp(this.nzoom)))
+      // this.zoom = Math.max(2, Math.min(this.canvas.height * .93, this.canvas.width * .93, Math.exp(this.nzoom)))
       if (this.zoom > 22) {
         if (Date.now() - zoomStart < 350) {
           this.zoom = Math.round(this.zoom)
         }
       }
-      console.log(this.zoom)
+      // console.log(this.zoom)
       this.size.width = this.canvas.width / this.zoom
       this.size.height = this.canvas.height / this.zoom
     }
@@ -136,29 +139,53 @@ export default function (el, { onchange } = { onchange: () => {} }) {
   const getEditor = (hashPos) => {
     let editor = editors[hashPos]
     if (!editor) {
+      let flipSize = screen.zoom
+      const flipThreshold = 330
       editor = editors[hashPos] = {
         instance: new Primrose({
           theme,
+          wordWrap: false,
           lineNumbers: false,
-          fontSize: 16,
-          width: 1024,
-          height: 1024,
+          fontSize: 32,
+          padding: 20,
+          width: 1024, //flipSize ? 1024+512 : 1024,
+          height: 1024, //flipSize ? 1024+512 : 1024,
           scaleFactor: 1,
         }),
         drawToSquare() {
+          if (screen.zoom < 45) return
           const [x, y] = hashPosToXY(hashPos)
-          context.drawImage(
+          if (screen.zoom > flipThreshold && flipSize !== screen.zoom) { //} && !flipSize) {
+            flipSize = screen.zoom
+            editor.instance.setSize(
+              512 + Math.min(1100, (screen.zoom-flipThreshold)*1.6),
+              512 + Math.min(1100, (screen.zoom-flipThreshold)*1.6)
+            )
+            // editor.drawToSquare()
+            // console.log('set size')
+          } else if (screen.zoom <= flipThreshold && flipSize) {
+            flipSize = false
+            editor.instance.setSize(
+              512,
+              512
+            )
+            // editor.drawToSquare()
+          }
+          // else {
+            context.drawImage(
             editor.instance.canvas,
-            10 + Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
-            10 + Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
-            -20 + screen.zoom + 1,
-            -20 + screen.zoom + 1
+            Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
+            Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
+            Math.floor(screen.zoom) + 1,
+            Math.floor(screen.zoom) + 1
           )
+
+          // }
         }
       }
       editor.instance.theme = theme
       editor.instance.addEventListener("change", editor.drawToSquare);
-      editor.instance.value = drawSquare.toString()
+      editor.instance.value = handleMove.toString()
       setTimeout(() => {
         editor.drawToSquare()
       }, 100)
@@ -172,7 +199,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
   }
 
   function clear () {
-    context.fillStyle = '#fff'
+    context.fillStyle = colors.back
     context.fillRect(0, 0, screen.canvas.width, screen.canvas.height)
   }
 
@@ -195,6 +222,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
   const drawSquare = (hashPos) => {
     const [x, y] = hashPosToXY(hashPos)
 
+
     context.fillStyle = colors.square
     context.fillRect(
       Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
@@ -202,6 +230,8 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       screen.zoom + 1,
       screen.zoom + 1
     )
+
+    getEditor(hashPos).drawToSquare()
     // context.drawImage(
     //   editor.canvas,
     //   Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
@@ -209,13 +239,14 @@ export default function (el, { onchange } = { onchange: () => {} }) {
     //   screen.zoom + 1,
     //   screen.zoom + 1
     // )
-    if (screen.zoom > 100) {
-      getEditor(hashPos).drawToSquare()
-    }
+    // if (screen.zoom > 100) {
+
+    // }
   }
 
   const drawPointer = (hashPos) => {
     const [x, y] = hashPosToXY(hashPos)
+
     context.fillStyle = colors.pointer
     context.fillRect(
       Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
@@ -223,9 +254,9 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       screen.zoom + 1,
       screen.zoom + 1
     )
-    if (screen.zoom > 100) {
-      getEditor(hashPos).drawToSquare()
-    }
+        getEditor(hashPos).drawToSquare()
+    // if (screen.zoom > 100) {
+    // }
 
     // context.drawImage(
     //   editor.canvas,
@@ -264,11 +295,15 @@ export default function (el, { onchange } = { onchange: () => {} }) {
   }
 
   const drawSquares = () => {
+    requestAnimationFrame(() => {
+
     const visible = Object.keys(squares).filter(isVisibleSquare)
+      // .concat(Object.keys(squares).filter(isAudibleSquare))
     visible.forEach(drawSquare)
-    const audible = Object.keys(squares).filter(isAudibleSquare)
-    audible.forEach(drawPointer)
-    onchange({ visible, audible })
+    // const audible = Object.keys(squares).filter(isAudibleSquare)
+    // audible.forEach(drawPointer)
+    onchange({ visible }) //, audible })
+    })
   }
 
   const posToHash = pos => `${pos.x},${pos.y}`
@@ -341,8 +376,10 @@ export default function (el, { onchange } = { onchange: () => {} }) {
 
   function render () {
     clear()
-    drawGrid()
     drawSquares()
+    requestAnimationFrame(() => {
+      drawGrid()
+    })
   }
 
   let zoomStart
@@ -392,7 +429,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       const dx = controls.x - x
       const dy = controls.y - y
       // if diffs are too large then it's probably a pinch error, so discard
-      if (Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+      if (Math.abs(dx) < 150 && Math.abs(dy) < 150) {
         screen.setShift({
           x: screen.shift.x - (controls.x - x) / screen.zoom,
           y: screen.shift.y - (controls.y - y) / screen.zoom

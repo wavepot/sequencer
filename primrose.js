@@ -276,7 +276,7 @@ class Cursor {
 }
 
 // A selection of fonts for preferred monospace rendering.
-const monospaceFamily = "'Liberation Mono', 'Droid Sans Mono', 'Consolas', 'Lucida Console', 'Courier New', 'Courier', monospace";
+const monospaceFamily = "'Inconsolata', 'Ubuntu Mono', 'Droid Sans Mono', 'Consolas', 'Lucida Console', 'Courier New', 'Courier', monospace";
 
 class Row {
     constructor(txt, tokens, startStringIndex, startTokenIndex, lineNumber) {
@@ -4432,7 +4432,7 @@ class Primrose extends EventTarget {
             = fgfx.imageSmoothingEnabled
             = bgfx.imageSmoothingEnabled
             = tgfx.imageSmoothingEnabled
-            = true;
+            = false;
         context.textBaseline
             = fgfx.textBaseline
             = bgfx.textBaseline
@@ -4473,9 +4473,9 @@ class Primrose extends EventTarget {
         this.value = currentValue;
         //<<<<<<<<<< INITIALIZE STATE <<<<<<<<<<
 
-        render = () => {
-            requestAnimationFrame(doRender);
-        };
+        render = doRender //() => {
+            // requestAnimationFrame(doRender);
+        // };
         doRender();
 
         // This is done last so that controls that have errored
