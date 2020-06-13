@@ -1,3 +1,5 @@
+import { Basic, Dark, Grammar, HTML, JavaScript, Light, PlainText, Primrose, grammars, themes } from './primrose.js'
+
 const calcOffset = v => v >= 0 ? v - (v | 0) : 1 - calcOffset(-v)
 
 const debug = window.debug = {}
@@ -5,16 +7,62 @@ const debug = window.debug = {}
 const colors = {
   grid: '#000', //'#222222',
   square: '#000',
-  pointer: '#444',
+  pointer: '#000',
+}
+
+const theme = {
+    name: "Darker",
+    cursorColor: "white",
+    unfocused: "rgba(0,0,0,0)",
+    currentRowBackColor: "#202020",
+    selectedBackColor: "#404040",
+    lineNumbers: {
+        foreColor: "white"
+    },
+    regular: {
+        backColor: "black",
+        foreColor: "#ccc"
+    },
+    strings: {
+        foreColor: "#aa9900",
+        fontStyle: "italic"
+    },
+    regexes: {
+        foreColor: "#aa0099",
+        fontStyle: "italic"
+    },
+    numbers: {
+        foreColor: "#5cf"
+    },
+    comments: {
+        foreColor: "#555",
+        // fontStyle: "italic"
+    },
+    keywords: {
+        foreColor: "#f33"
+    },
+    functions: {
+        foreColor: "#fff",
+        // fontWeight: "bold"
+    },
+    members: {
+        foreColor: "#999"
+    },
+    error: {
+        foreColor: "red",
+        fontStyle: "underline italic"
+    }
 }
 
 export default function (el, { onchange } = { onchange: () => {} }) {
   const canvas = document.createElement('canvas')
-  const context = canvas.getContext('2d')
+  const context = canvas.getContext('2d', { alpha: false })
 
   let timer = 0
 
   let squares = debug.squares = localStorage.squares ? JSON.parse(localStorage.squares) : {}
+
+  let editors = debug.editors = {}
 
   let pointers = debug.pointers = []
 
@@ -74,9 +122,48 @@ export default function (el, { onchange } = { onchange: () => {} }) {
     setZoom (zoom) {
       this.nzoom = localStorage.zoom = Math.max(Math.log(2), Math.min(Math.log(this.canvas.height * .93), Math.log(this.canvas.width * .93), zoom)) || 50
       this.zoom = Math.max(2, Math.min(this.canvas.height * .93, this.canvas.width * .93, Math.exp(this.nzoom)))
+      if (this.zoom > 22) {
+        if (Date.now() - zoomStart < 350) {
+          this.zoom = Math.round(this.zoom)
+        }
+      }
+      console.log(this.zoom)
       this.size.width = this.canvas.width / this.zoom
       this.size.height = this.canvas.height / this.zoom
     }
+  }
+
+  const getEditor = (hashPos) => {
+    let editor = editors[hashPos]
+    if (!editor) {
+      editor = editors[hashPos] = {
+        instance: new Primrose({
+          theme,
+          lineNumbers: false,
+          fontSize: 16,
+          width: 1024,
+          height: 1024,
+          scaleFactor: 1,
+        }),
+        drawToSquare() {
+          const [x, y] = hashPosToXY(hashPos)
+          context.drawImage(
+            editor.instance.canvas,
+            10 + Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
+            10 + Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
+            -20 + screen.zoom + 1,
+            -20 + screen.zoom + 1
+          )
+        }
+      }
+      editor.instance.theme = theme
+      editor.instance.addEventListener("change", editor.drawToSquare);
+      editor.instance.value = drawSquare.toString()
+      setTimeout(() => {
+        editor.drawToSquare()
+      }, 100)
+    }
+    return editor
   }
 
   function resize() {
@@ -85,7 +172,8 @@ export default function (el, { onchange } = { onchange: () => {} }) {
   }
 
   function clear () {
-    context.clearRect(0, 0, screen.canvas.width, screen.canvas.height)
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, screen.canvas.width, screen.canvas.height)
   }
 
   const drawHorizontalLine = x => {
@@ -106,6 +194,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
 
   const drawSquare = (hashPos) => {
     const [x, y] = hashPosToXY(hashPos)
+
     context.fillStyle = colors.square
     context.fillRect(
       Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
@@ -113,6 +202,16 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       screen.zoom + 1,
       screen.zoom + 1
     )
+    // context.drawImage(
+    //   editor.canvas,
+    //   Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
+    //   Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
+    //   screen.zoom + 1,
+    //   screen.zoom + 1
+    // )
+    if (screen.zoom > 100) {
+      getEditor(hashPos).drawToSquare()
+    }
   }
 
   const drawPointer = (hashPos) => {
@@ -124,6 +223,24 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       screen.zoom + 1,
       screen.zoom + 1
     )
+    if (screen.zoom > 100) {
+      getEditor(hashPos).drawToSquare()
+    }
+
+    // context.drawImage(
+    //   editor.canvas,
+    //   Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
+    //   Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
+    //   screen.zoom + 1,
+    //   screen.zoom + 1
+    // )
+  // setTimeout(() => {
+  // editor.focus()
+
+  //   editor.resize()
+  // },1000)
+    // editor.setSize(screen.zoom, screen.zoom)
+    // editor.scaleFactor = 1
   }
 
   const isVisibleSquare = (hashPos) => {
@@ -162,7 +279,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
     if (hashPos in squares) {
       delete squares[hashPos]
       // clearSquare(hash)
-      clear()
+      // clear()
       render()
     } else {
       squares[hashPos] = true
@@ -223,12 +340,19 @@ export default function (el, { onchange } = { onchange: () => {} }) {
   }
 
   function render () {
+    clear()
     drawGrid()
     drawSquares()
   }
 
+  let zoomStart
+  let zoomTimeout
+
   function handleZoom (e, noUpdate = false) {
     e.preventDefault()
+    if (!zoomStart) zoomStart = Date.now()
+    clearTimeout(zoomTimeout)
+    zoomTimeout = setTimeout(() => { zoomStart = null }, 300)
     if (!noUpdate) controls.update(controls.parseEvent(e))
     // TODO: replace 'nzoom'
     screen.setZoom(screen.nzoom - (noUpdate ? controls.od - controls.d : controls.d))
@@ -238,7 +362,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
       y: controls.y / screen.zoom - controls.ry
     })
     if (noUpdate) return
-    clear()
+    // clear()
     render()
   }
 
@@ -275,7 +399,7 @@ export default function (el, { onchange } = { onchange: () => {} }) {
         })
       }
       controls.update({ x, y, d })
-      clear()
+      // clear()
       render()
     }
   }
