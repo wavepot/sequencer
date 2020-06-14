@@ -1,12 +1,13 @@
-import { Basic, Dark, Grammar, HTML, JavaScript, Light, PlainText, Primrose, grammars, themes } from './primrose.js'
+import { Primrose } from './Primrose/js/package/index.js'
 
 const calcOffset = v => v >= 0 ? v - Math.floor(v) : 1 - calcOffset(-v)
 
 const debug = window.debug = {}
 
 const colors = {
-  back: '#fff',
-  grid: '#000', //'#222222',
+  back: '#eee',
+  grid: '#ccc', //'#222222',
+  phrase: '#666',
   square: '#000',
   pointer: '#000',
 }
@@ -22,7 +23,7 @@ const theme = {
     },
     regular: {
         backColor: "black",
-        foreColor: "#fff"
+        foreColor: "#999"
     },
     strings: {
         foreColor: "#aa9900",
@@ -33,34 +34,34 @@ const theme = {
         fontStyle: "italic"
     },
     numbers: {
-        foreColor: "#e7e"
+        foreColor: "#fff"
     },
     comments: {
         foreColor: "#555",
         // fontStyle: "italic"
     },
     keywords: {
-        foreColor: "#f33"
+        foreColor: "#fff"
     },
     operators: {
-        foreColor: "#f33"
+        foreColor: "#ccc"
+    },
+    symbol: {
+      foreColor: '#ccc'
     },
     declare: {
-        foreColor: "#7af"
+        foreColor: "#fff"
     },
     functions: {
-        foreColor: "#7f4",
+        foreColor: "#fff",
         // fontWeight: "bold"
     },
     special: {
-        foreColor: "#e7e",
+        foreColor: "#fff",
         // fontWeight: "bold"
     },
-    symbol: {
-      foreColor: '#fff'
-    },
     members: {
-        foreColor: "#7af"// "#6bf"
+        foreColor: "#aaa"// "#6bf"
     },
     error: {
         foreColor: "red",
@@ -158,14 +159,15 @@ context.imageSmoothingEnabled = true
       const flipThreshold = 330
       let newX = 512, newY = 512
       editor = editors[hashPos] = {
+        display: new OffscreenCanvas(512,512),
         instance: new Primrose({
           theme,
           wordWrap: false,
           lineNumbers: false,
-          fontSize: 32,
-          padding: 30,
-          width: 1024, //flipSize ? 1024+512 : 1024,
-          height: 1024, //flipSize ? 1024+512 : 1024,
+          fontSize: 16,
+          padding: 0,
+          width: 512, //flipSize ? 1024+512 : 1024,
+          height: 512, //flipSize ? 1024+512 : 1024,
           scaleFactor: 1,
         }),
         drawToSquare() {
@@ -173,35 +175,75 @@ context.imageSmoothingEnabled = true
           const maxWidth = screen.canvas.width
           const maxHeight = screen.canvas.height
           let p = 1
-          if (screen.zoom > flipThreshold && flipSize !== screen.zoom) { //} && !flipSize) {
-            flipSize = screen.zoom
+          // if (screen.zoom > flipThreshold && flipSize !== screen.zoom) { //} && !flipSize) {
+          //   flipSize = screen.zoom
 
-            newX = 512 + Math.min(screen.canvas.width+flipThreshold+1000, (screen.zoom-flipThreshold)*1.6)
-            newY = 512 + Math.min(screen.canvas.width+flipThreshold+1000, (screen.zoom-flipThreshold)*1.6)
-            // p = newX / newY
-            // console.log(p)
-            editor.instance.setSize(newX, newY)
-          } else if (screen.zoom <= flipThreshold && flipSize) {
-            flipSize = false
-            editor.instance.setSize(512, 512)
+          //   newX = 512 + Math.min(screen.canvas.width+flipThreshold+1000, (screen.zoom-flipThreshold)*1.6)
+          //   newY = 512 + Math.min(screen.canvas.width+flipThreshold+1000, (screen.zoom-flipThreshold)*1.6)
+          //   // p = newX / newY
+          //   // console.log(p)
+          //   editor.instance.setSize(newX, newY)
+          // } else if (screen.zoom <= flipThreshold && flipSize) {
+          //   flipSize = false
+          //   editor.instance.setSize(512, 512)
+          // }
+          let width, height
+          width = height = screen.zoom
+
+          if (screen.zoom > maxWidth && screen.zoom > maxHeight) {
+            let p
+            if (screen.zoom > maxWidth) {
+              p = maxWidth / screen.zoom
+            } else {
+              p = maxHeight / screen.zoom
+            }
+            editor.instance.setSize(
+              Math.min(width, maxWidth) * p,
+              Math.min(height, maxHeight) * p
+            )
+            width = Math.min(width, maxWidth)
+            height = Math.min(height, maxHeight)
+          } else {
+            editor.instance.setSize(
+              screen.zoom,
+              screen.zoom
+            )
           }
-// context.translate(0.5,0.5);
 
+          // editor.display.width = screen.zoom
+          // editor.display.height = screen.zoom
+          // editor.display.getContext('2d')
+          context.imageSmoothingEnabled = false
           context.drawImage(
             editor.instance.canvas,
-            Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
-            Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
-            Math.floor(screen.zoom) + 1,
-            Math.floor(screen.zoom) + 1
+            // 0,0
+            Math.floor(x * screen.zoom + screen.shift.x * screen.zoom),
+            Math.floor(y * screen.zoom + screen.shift.y * screen.zoom),
+            // Math.min(width, maxWidth),
+            // Math.min(height, maxHeight)
+            width, height
+            // Math.floor(screen.zoom),
+            // Math.floor(screen.zoom)
           )
+          // context.drawImage(
+          //   editor.display,
+          //   Math.floor(x * screen.zoom + screen.shift.x * screen.zoom),
+          //   Math.floor(y * screen.zoom + screen.shift.y * screen.zoom),
+          // )
         }
       }
       editor.instance.theme = theme
       editor.instance.addEventListener("change", editor.drawToSquare);
-      editor.instance.value = getEditor.toString()
-      setTimeout(() => {
+      editor.instance.value = [
+        getEditor,
+        resize,
+        drawSquares,
+        drawGrid,
+        isVisibleSquare,
+      ][Math.random() * 5 | 0].toString()
+      // setTimeout(() => {
         editor.drawToSquare()
-      }, 100)
+      // }, 100)
     }
     return editor
   }
@@ -235,8 +277,18 @@ context.imageSmoothingEnabled = true
   const drawSquare = (hashPos) => {
     const [x, y] = hashPosToXY(hashPos)
 
-
-    context.fillStyle = colors.square
+let cs = [
+  // '#44f',
+  // '#f00',
+  '#000',
+  // '#f10',
+  // '#333',
+  // '#688',
+]
+    context.fillStyle = cs[y % cs.length]
+      // + (Math.random() * 16 | 0).toString(16) //colors.square
+      // + (Math.random() * 16 | 0).toString(16) //colors.square
+      // + (Math.random() * 16 | 0).toString(16) //colors.square
     context.fillRect(
       Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
       Math.floor(y * screen.zoom + screen.shift.y * screen.zoom) - 1,
@@ -341,14 +393,16 @@ context.imageSmoothingEnabled = true
   function drawGrid () {
     context.save()
 
-    context.strokeStyle = colors.grid
     context.lineWidth = Math.min(1, .02 + screen.zoom / 55)
 
     for (let x = 0; x < screen.size.width; x++) {
+    context.strokeStyle = (-1+x-Math.ceil(screen.shift.x)) % 4 === 0? colors.phrase : colors.grid
       drawHorizontalLine(Math.floor(x * screen.zoom + screen.offset.x * screen.zoom) - .5)
     }
 
     for (let y = 0; y < screen.size.height; y++) {
+    // context.strokeStyle = colors.grid
+    context.strokeStyle = (y-Math.floor(screen.shift.y)) % 4 === 0? colors.phrase : colors.grid
       drawVerticalLine(Math.floor(y * screen.zoom + screen.offset.y * screen.zoom) - .5)
     }
 
@@ -390,10 +444,10 @@ context.imageSmoothingEnabled = true
 
   function render () {
     clear()
-    drawSquares()
-    requestAnimationFrame(() => {
       drawGrid()
-    })
+    // requestAnimationFrame(() => {
+    drawSquares()
+    // })
   }
 
   let zoomStart
