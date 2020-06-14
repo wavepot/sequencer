@@ -155,17 +155,15 @@ export default function yep (el, { onchange } = { onchange: () => {} }) {
     }
   }
 
-  const getEditor = (hashPos) => {
+  const getEditor = (hashPos, brush) => {
     if (screen.zoom < 45) return
     let editor = editors[hashPos]
     if (!editor) {
-      let flipSize // = screen.zoom
-      const flipThreshold = 1300
-      let lastWidth, lastHeight, currWidth, currHeight
-      editor = editors[hashPos] = {
-        pos: hashPosToXY(hashPos),
-        display: new OffscreenCanvas(512,512),
-        instance: new Primrose({
+      let instance
+      if (brush) {
+        instance = brush.instance
+      } else {
+        instance = new Primrose({
           theme,
           wordWrap: false,
           lineNumbers: false,
@@ -174,7 +172,15 @@ export default function yep (el, { onchange } = { onchange: () => {} }) {
           width: 512, //flipSize ? 1024+512 : 1024,
           height: 512, //flipSize ? 1024+512 : 1024,
           scaleFactor: 1,
-        }),
+        })
+      }
+      let flipSize // = screen.zoom
+      const flipThreshold = 1300
+      let lastWidth, lastHeight, currWidth, currHeight
+      editor = editors[hashPos] = {
+        pos: hashPosToXY(hashPos),
+        display: new OffscreenCanvas(512,512),
+        instance,
         drawToSquare() {
           const [x, y] = hashPosToXY(hashPos)
           const maxWidth = screen.canvas.width
@@ -249,19 +255,19 @@ export default function yep (el, { onchange } = { onchange: () => {} }) {
           // )
         }
       }
-      editor.instance.theme = theme
-      editor.instance.addEventListener('change', editor.drawToSquare);
-      editor.instance.addEventListener('update', editor.drawToSquare);
-      editor.instance.value = [
-        getEditor,
-        resize,
-        drawSquares,
-        drawGrid,
-        isVisibleSquare,
-      ][Math.random() * 0 | 0].toString()
-      // setTimeout(() => {
-        editor.drawToSquare()
-      // }, 100)
+      editor.instance.addEventListener('change', editor.drawToSquare)
+      editor.instance.addEventListener('update', editor.drawToSquare)
+      if (!brush) {
+        editor.instance.theme = theme
+        editor.instance.value = [
+          getEditor,
+          resize,
+          drawSquares,
+          drawGrid,
+          isVisibleSquare,
+        ][Math.random() * 0 | 0].toString()
+      }
+      editor.drawToSquare()
     }
     return editor
   }
@@ -392,17 +398,23 @@ let cs = [
 
   const posToHash = pos => `${pos.x},${pos.y}`
 
+  let brush = false
+
   const toggleSquare = pos => {
     const hashPos = posToHash(pos)
 
     if (hashPos in squares) {
       delete squares[hashPos]
+      brush = editors[hashPos]
+      brush.instance.removeEventListener('change', brush.drawToSquare)
+      brush.instance.removeEventListener('update', brush.drawToSquare)
       delete editors[hashPos]
       // clearSquare(hash)
       // clear()
       render()
     } else {
       squares[hashPos] = true
+      getEditor(hashPos, brush)
       drawSquare(hashPos)
     }
 
@@ -581,7 +593,6 @@ let cs = [
 
   let focus = false
   function handleMouseDown (e) {
-    console.log('mousedown', e.which)
     controls.update(controls.parseMouseEvent(e))
     controls.down = true
     timer = performance.now()
@@ -596,7 +607,6 @@ let cs = [
   }
 
   function handleMouseUp (e) {
-    console.log('mouseup', e.which)
     controls.down = false
 
     // if (focus) return focus.instance.readMouseUpEvent(fixEvent(e, focus))
@@ -604,10 +614,11 @@ let cs = [
     if (controls.which === 1) { // left click
       if (performance.now() - timer < 200 || focus) {
         if (hashPos in editors) {
+          brush = editors[hashPos]
           if (focus === editors[hashPos]) {
             focus.instance.readMouseUpEvent(fixEvent(e, focus))
           } else if (!didMove) {
-            focus = getEditor(hashPos)
+            focus = brush = getEditor(hashPos)
             focus.instance.focus()
             focus.instance.readMouseDownEvent(fixEvent(e, focus))
             focus.instance.readMouseUpEvent(fixEvent(e, focus))
@@ -615,18 +626,18 @@ let cs = [
         } else if (focus && !didMove) {
           focus.instance.blur()
           focus = false
+          brush = false
+        } else {
+          brush = false
         }
       }
     } else if (controls.which === 2) {
-            e.preventDefault()
-
-      // if (performance.now() - timer < 200) {
-        if (focus && focus !== editors[hashPos]) {
-          focus.instance.blur()
-          focus = false
-        }
-        toggleSquare({ x: controls.nx, y: controls.ny })
-      // }
+      e.preventDefault() // prevent operating system from doing paste on middle click
+      if (focus && focus !== editors[hashPos]) {
+        focus.instance.blur()
+        focus = false
+      }
+      toggleSquare({ x: controls.nx, y: controls.ny })
     }
 
     didMove = false

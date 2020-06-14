@@ -614,7 +614,7 @@ export class Primrose extends EventTarget {
                 currentStringIndex += row.stringLength;
                 currentTokenIndex += row.numTokens;
 
-                if (row.tokens[row.tokens.length - 1].type === "newlines") {
+                if (row.tokens[row.tokens.length - 1]?.type === "newlines") {
                     ++currentLineNumber;
                 }
             }
@@ -713,6 +713,7 @@ export class Primrose extends EventTarget {
         this.blur = () => {
             if (focused) {
                 focused = false;
+                focusedControl = null;
                 this.dispatchEvent(blurEvt);
                 // render();
                 refreshBuffers();
