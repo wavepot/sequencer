@@ -156,12 +156,12 @@ export class Primrose extends EventTarget {
                 -scroll.y * character.height + padding);
 
 
-            // draw the current row highlighter
+            // draw current row highlighter
             if (focused) {
                 fillRect(bgfx, theme.currentRowBackColor ||
                     DefaultTheme.currentRowBackColor,
                     0, minCursor.y,
-                    gridBounds.width,
+                    this.width,
                     maxCursor.y - minCursor.y + 1);
             }
 
@@ -203,10 +203,10 @@ export class Primrose extends EventTarget {
                 tokenBack.copy(tokenFront);
             }
 
-            // draw the cursor caret
+            // draw cursor caret
             if (focused) {
                 const cc = theme.cursorColor || DefaultTheme.cursorColor,
-                    w = 1 / character.width;
+                    w = 0;
                 fillRect(bgfx, cc, minCursor.x, minCursor.y, w, 1);
                 fillRect(bgfx, cc, maxCursor.x, maxCursor.y, w, 1);
             }
@@ -229,7 +229,7 @@ export class Primrose extends EventTarget {
             for (let y = minY; y <= maxY && y < rows.length; ++y) {
                 // draw the tokens on this row
                 const row = rows[y].tokens,
-                    textY = (y - scroll.y) * character.height;
+                    textY = (y - scroll.y) * character.height - 4;
 
                 for (let i = 0; i < row.length; ++i) {
                     const t = row[i];
@@ -419,7 +419,9 @@ export class Primrose extends EventTarget {
                 lastScrollX = scroll.x;
                 lastScrollY = scroll.y;
                 resized = false;
-                this.dispatchEvent(updateEvt);
+                queueMicrotask(() => {
+                    this.dispatchEvent(updateEvt);
+                })
             }
         };
         //<<<<<<<<<< RENDERING <<<<<<<<<<
@@ -549,12 +551,15 @@ export class Primrose extends EventTarget {
             }
 
             // measure the grid
-            const x = Math.floor(lineCountWidth + padding / character.width),
-                y = Math.floor(padding / character.height),
-                w = Math.floor((this.width - 2 * padding) / character.width) - x - bottomRightGutter.width,
-                h = Math.floor((this.height - 2 * padding) / character.height) - y - bottomRightGutter.height;
+            // const x = Math.floor(lineCountWidth + padding / character.width),
+            //     y = Math.floor(padding / character.height),
+            //     w = Math.floor((this.width - 2 * padding) / character.width) - x - bottomRightGutter.width,
+            //     h = Math.floor((this.height - 2 * padding) / character.height) - y - bottomRightGutter.height;
+            const x = 0,//Math.floor(lineCountWidth + padding / character.width),
+                y = 0,//Math.floor(padding / character.height),
+                w = Math.ceil(this.width / character.width) - x, //- bottomRightGutter.width,
+                h = Math.ceil(this.height / character.height) - y //- bottomRightGutter.height;
             gridBounds.set(x, y, w, h);
-
             // Perform the layout
             const tokenQueue = newTokens.map(t => t.clone()),
                 rowRemoveCount = endY - startY + 1,
@@ -640,7 +645,7 @@ export class Primrose extends EventTarget {
 
         const minDelta = (v, minV, maxV) => {
             const dvMinV = v - minV,
-                dvMaxV = v - maxV + 5;
+                dvMaxV = v - maxV + 2;
             let dv = 0;
             if (dvMinV < 0 || dvMaxV >= 0) {
                 // compare the absolute values, so we get the smallest change
@@ -655,13 +660,13 @@ export class Primrose extends EventTarget {
 
         const clampScroll = () => {
             const toHigh = scroll.y < 0 || maxVerticalScroll === 0,
-                toLow = scroll.y > maxVerticalScroll;
+                toLow = scroll.y > maxVerticalScroll + 1;
 
             if (toHigh) {
                 scroll.y = 0;
             }
             else if (toLow) {
-                scroll.y = maxVerticalScroll;
+                scroll.y = maxVerticalScroll + 1;
             }
             render();
 
@@ -709,7 +714,8 @@ export class Primrose extends EventTarget {
             if (focused) {
                 focused = false;
                 this.dispatchEvent(blurEvt);
-                render();
+                // render();
+                refreshBuffers();
             }
         };
 
@@ -720,7 +726,8 @@ export class Primrose extends EventTarget {
             if (!focused) {
                 focused = true;
                 this.dispatchEvent(focusEvt);
-                render();
+                // render();
+                refreshBuffers();
             }
         };
 
@@ -864,7 +871,7 @@ export class Primrose extends EventTarget {
 
             ["SelectDown", () => {
                 backCursor.down(rows);
-                scrollIntoView(frontCursor);
+                scrollIntoView(backCursor);
             }],
 
             ["SelectLeft", () => {
@@ -1256,8 +1263,8 @@ export class Primrose extends EventTarget {
         //>>>>>>>>>> MOUSE EVENT HANDLERS >>>>>>>>>>
         const setMousePointer = (evt) => {
             pointer.set(
-                evt.offsetX,
-                evt.offsetY);
+                evt.realOffsetX ?? evt.offsetX,
+                evt.realOffsetY ?? evt.offsetY);
         };
         this.readMouseOverEvent = debugEvt("mouseover", pointerOver);
         this.readMouseOutEvent = debugEvt("mouseout", pointerOut);

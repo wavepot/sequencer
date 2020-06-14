@@ -26,11 +26,11 @@ const theme = {
         foreColor: "#999"
     },
     strings: {
-        foreColor: "#aa9900",
-        fontStyle: "italic"
+        foreColor: "#fff",
+        // fontStyle: "italic"
     },
     regexes: {
-        foreColor: "#aa0099",
+        foreColor: "#fff",
         fontStyle: "italic"
     },
     numbers: {
@@ -72,7 +72,9 @@ const theme = {
 export default function yep (el, { onchange } = { onchange: () => {} }) {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
-context.imageSmoothingEnabled = true
+
+  context.imageSmoothingEnabled = false
+
   let timer = 0
 
   let squares = debug.squares = localStorage.squares ? JSON.parse(localStorage.squares) : {}
@@ -87,7 +89,9 @@ context.imageSmoothingEnabled = true
     x: 0, y: 0, d: 0, // absolute position
     rx: 0, ry: 0, // relative position
     nx: 0, ny: 0, // normalized position
-    parseEvent (e) {
+    which: 0,
+    parseMouseEvent (e) {
+      controls.which = e.which
       let x, y, d = 0
       if (e.targetTouches) {
         if (e.targetTouches.length >= 1) {
@@ -156,9 +160,10 @@ context.imageSmoothingEnabled = true
     let editor = editors[hashPos]
     if (!editor) {
       let flipSize // = screen.zoom
-      const flipThreshold = 330
-      let newX = 512, newY = 512
+      const flipThreshold = 1300
+      let lastWidth, lastHeight, currWidth, currHeight
       editor = editors[hashPos] = {
+        pos: hashPosToXY(hashPos),
         display: new OffscreenCanvas(512,512),
         instance: new Primrose({
           theme,
@@ -174,7 +179,7 @@ context.imageSmoothingEnabled = true
           const [x, y] = hashPosToXY(hashPos)
           const maxWidth = screen.canvas.width
           const maxHeight = screen.canvas.height
-          let p = 1
+          let p = editor.scale = 1
           // if (screen.zoom > flipThreshold && flipSize !== screen.zoom) { //} && !flipSize) {
           //   flipSize = screen.zoom
 
@@ -191,34 +196,46 @@ context.imageSmoothingEnabled = true
           width = height = screen.zoom
 
           if (screen.zoom > maxWidth && screen.zoom > maxHeight) {
-            let p
             if (screen.zoom > maxWidth) {
-              p = maxWidth / screen.zoom
+              if (screen.zoom - maxWidth > flipThreshold) {
+                p = maxWidth / (screen.zoom - flipThreshold)
+              }
             } else {
-              p = maxHeight / screen.zoom
+              if (screen.zoom - maxHeight > flipThreshold) {
+                p = maxHeight / (screen.zoom - flipThreshold)
+              }
             }
-            editor.instance.setSize(
-              Math.min(width, maxWidth) * p,
-              Math.min(height, maxHeight) * p
-            )
+            editor.scale = p
+            currWidth = Math.min(width, maxWidth) * p
+            currHeight = Math.min(height, maxHeight) * p
+            if (currWidth !== lastWidth || currHeight !== lastHeight) {
+              editor.instance.setSize(currWidth, currHeight)
+              lastWidth = currWidth
+              lastHeight = currHeight
+            }
             width = Math.min(width, maxWidth)
             height = Math.min(height, maxHeight)
           } else {
-            editor.instance.setSize(
-              screen.zoom,
-              screen.zoom
-            )
+            currWidth = width = Math.min(maxWidth, screen.zoom)
+            currHeight = height = Math.min(maxHeight, screen.zoom)
+            if (currWidth !== lastWidth || currHeight !== lastHeight) {
+              editor.instance.setSize(currWidth, currHeight)
+              lastWidth = currWidth
+              lastHeight = currHeight
+            }
           }
 
           // editor.display.width = screen.zoom
           // editor.display.height = screen.zoom
           // editor.display.getContext('2d')
+          editor.offsetX = Math.floor(x * screen.zoom + screen.shift.x * screen.zoom)
+          editor.offsetY = Math.floor(y * screen.zoom + screen.shift.y * screen.zoom)
           context.imageSmoothingEnabled = false
           context.drawImage(
             editor.instance.canvas,
             // 0,0
-            Math.floor(x * screen.zoom + screen.shift.x * screen.zoom),
-            Math.floor(y * screen.zoom + screen.shift.y * screen.zoom),
+            editor.offsetX, //Math.floor(x * screen.zoom + screen.shift.x * screen.zoom),
+            editor.offsetY, //Math.floor(y * screen.zoom + screen.shift.y * screen.zoom),
             // Math.min(width, maxWidth),
             // Math.min(height, maxHeight)
             width, height
@@ -233,14 +250,15 @@ context.imageSmoothingEnabled = true
         }
       }
       editor.instance.theme = theme
-      editor.instance.addEventListener("change", editor.drawToSquare);
+      editor.instance.addEventListener('change', editor.drawToSquare);
+      editor.instance.addEventListener('update', editor.drawToSquare);
       editor.instance.value = [
         getEditor,
         resize,
         drawSquares,
         drawGrid,
         isVisibleSquare,
-      ][Math.random() * 5 | 0].toString()
+      ][Math.random() * 0 | 0].toString()
       // setTimeout(() => {
         editor.drawToSquare()
       // }, 100)
@@ -379,6 +397,7 @@ let cs = [
 
     if (hashPos in squares) {
       delete squares[hashPos]
+      delete editors[hashPos]
       // clearSquare(hash)
       // clear()
       render()
@@ -454,11 +473,12 @@ let cs = [
   let zoomTimeout
 
   function handleZoom (e, noUpdate = false) {
+    if (focus && !keys.Control) return
     e.preventDefault()
     if (!zoomStart) zoomStart = Date.now()
     clearTimeout(zoomTimeout)
     zoomTimeout = setTimeout(() => { zoomStart = null }, 300)
-    if (!noUpdate) controls.update(controls.parseEvent(e))
+    if (!noUpdate) controls.update(controls.parseMouseEvent(e))
     // TODO: replace 'nzoom'
     screen.setZoom(screen.nzoom - (noUpdate ? controls.od - controls.d : controls.d))
     // TODO: this should be a normalized method
@@ -477,16 +497,24 @@ let cs = [
     render()
   })
 
-  function handleDown (e) {
-    controls.update(controls.parseEvent(e))
-    controls.down = true
-    timer = performance.now()
+  const fixEvent = (e, focus) => {
+    if ('offsetX' in e) {
+      e.realOffsetX = (e.offsetX - focus.offsetX) * focus.scale
+      e.realOffsetY = (e.offsetY - focus.offsetY) * focus.scale
+    }
+    return e
   }
 
+  let didMove = false
+
   function handleMove (e) {
+    const hashPos = posToHash({ x: controls.nx, y: controls.ny })
+
+    if (focus === editors[hashPos]) return focus.instance.readMouseMoveEvent(fixEvent(e, focus))
+
     e.preventDefault()
     if (controls.down) {
-      const { x, y, d } = controls.parseEvent(e)
+      const { x, y, d } = controls.parseMouseEvent(e)
       if (d) {
         controls.update({ d })
         handleZoom(e, true)
@@ -498,6 +526,7 @@ let cs = [
       const dy = controls.y - y
       // if diffs are too large then it's probably a pinch error, so discard
       if (Math.abs(dx) < 150 && Math.abs(dy) < 150) {
+        didMove = true
         screen.setShift({
           x: screen.shift.x - (controls.x - x) / screen.zoom,
           y: screen.shift.y - (controls.y - y) / screen.zoom
@@ -509,18 +538,127 @@ let cs = [
     }
   }
 
+  function handleKeyDown (e) {
+    // e.preventDefault()
+    keys[e.key] = true
+    if (keys.Escape) {
+      if (focus) focus.instance.blur()
+      focus = false
+    }
+    if (focus && keys.Meta && keys.Shift && keys.ArrowLeft) {
+      focus.instance.blur()
+      let [x, y] = focus.pos
+      x -= 1
+      focus = getEditor(posToHash({ x, y }))
+      focus.instance.focus()
+    }
+    if (focus && keys.Meta && keys.Shift && keys.ArrowUp) {
+      focus.instance.blur()
+      let [x, y] = focus.pos
+      y -= 1
+      focus = getEditor(posToHash({ x, y }))
+      focus.instance.focus()
+    }
+    if (focus && keys.Meta && keys.Shift && keys.ArrowRight) {
+      focus.instance.blur()
+      let [x, y] = focus.pos
+      x += 1
+      focus = getEditor(posToHash({ x, y }))
+      focus.instance.focus()
+    }
+    if (focus && keys.Meta && keys.Shift && keys.ArrowDown) {
+      focus.instance.blur()
+      let [x, y] = focus.pos
+      y += 1
+      focus = getEditor(posToHash({ x, y }))
+      focus.instance.focus()
+    }
+  }
+
+  function handleKeyUp (e) {
+    keys[e.key] = false
+  }
+
+  let focus = false
+  function handleMouseDown (e) {
+    console.log('mousedown', e.which)
+    controls.update(controls.parseMouseEvent(e))
+    controls.down = true
+    timer = performance.now()
+    const hashPos = posToHash({ x: controls.nx, y: controls.ny })
+
+    if (controls.which !== 2) {
+      if (hashPos in editors) {
+        if (editors[hashPos] === focus) return focus.instance.readMouseDownEvent(fixEvent(e, focus))
+      }
+    }
+    // }
+  }
+
+  function handleMouseUp (e) {
+    console.log('mouseup', e.which)
+    controls.down = false
+
+    // if (focus) return focus.instance.readMouseUpEvent(fixEvent(e, focus))
+    const hashPos = posToHash({ x: controls.nx, y: controls.ny })
+    if (controls.which === 1) { // left click
+      if (performance.now() - timer < 200 || focus) {
+        if (hashPos in editors) {
+          if (focus === editors[hashPos]) {
+            focus.instance.readMouseUpEvent(fixEvent(e, focus))
+          } else if (!didMove) {
+            focus = getEditor(hashPos)
+            focus.instance.focus()
+            focus.instance.readMouseDownEvent(fixEvent(e, focus))
+            focus.instance.readMouseUpEvent(fixEvent(e, focus))
+          }
+        } else if (focus && !didMove) {
+          focus.instance.blur()
+          focus = false
+        }
+      }
+    } else if (controls.which === 2) {
+            e.preventDefault()
+
+      // if (performance.now() - timer < 200) {
+        if (focus && focus !== editors[hashPos]) {
+          focus.instance.blur()
+          focus = false
+        }
+        toggleSquare({ x: controls.nx, y: controls.ny })
+      // }
+    }
+
+    didMove = false
+  }
+
+  function handleMouseOver (e) {
+    if (focus) return focus.instance.readMouseOverEvent(fixEvent(e, focus))
+    //
+  }
+
+  function handleMouseOut (e) {
+    if (focus) return focus.instance.readMouseOutEvent(fixEvent(e, focus))
+    //
+  }
+
+        // this.readMouseOverEvent = debugEvt("mouseover", pointerOver);
+        // this.readMouseOutEvent = debugEvt("mouseout", pointerOut);
+        // this.readMouseDownEvent = debugEvt("mousedown", mouseLikePointerDown(setMousePointer));
+        // this.readMouseUpEvent = debugEvt("mouseup", mouseLikePointerUp);
+        // this.readMouseMoveEvent
+  const keys = {}
+
   window.addEventListener('wheel', handleZoom, { passive: false })
-  window.addEventListener('mousedown', handleDown, { passive: false })
-  window.addEventListener('touchstart', handleDown, { passive: false })
+  window.addEventListener('mouseover', handleMouseOver, { passive: false })
+  window.addEventListener('mouseout', handleMouseOut, { passive: false })
+  window.addEventListener('mousedown', handleMouseDown, { passive: false })
+  window.addEventListener('mouseup', handleMouseUp, { passive: false })
+  window.addEventListener('touchstart', handleMouseDown, { passive: false })
   window.addEventListener('mousemove', handleMove, { passive: false })
   window.addEventListener('touchmove', handleMove, { passive: false })
-
-  window.addEventListener('mouseup', () => {
-    controls.down = false
-    if (performance.now() - timer < 200) {
-      toggleSquare({ x: controls.nx, y: controls.ny })
-    }
-  })
+  window.addEventListener('keydown', handleKeyDown, { passive: false })
+  window.addEventListener('keyup', handleKeyUp, { passive: false })
 
   resize()
   screen.setShift(localStorage.shift ? JSON.parse(localStorage.shift) : { x: 0, y: 0 })
