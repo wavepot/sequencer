@@ -156,7 +156,7 @@ export default function yep (el, { onchange } = { onchange: () => {} }) {
   }
 
   const getEditor = (hashPos, brush) => {
-    if (screen.zoom < 45) return
+    if (screen.zoom < 16) return
     let editor = editors[hashPos]
     if (!editor) {
       let instance
@@ -181,7 +181,7 @@ export default function yep (el, { onchange } = { onchange: () => {} }) {
         pos: hashPosToXY(hashPos),
         display: new OffscreenCanvas(512,512),
         instance,
-        drawToSquare() {
+        drawEditor() {
           const [x, y] = hashPosToXY(hashPos)
           const maxWidth = screen.canvas.width
           const maxHeight = screen.canvas.height
@@ -255,19 +255,56 @@ export default function yep (el, { onchange } = { onchange: () => {} }) {
           // )
         }
       }
-      editor.instance.addEventListener('change', editor.drawToSquare)
-      editor.instance.addEventListener('update', editor.drawToSquare)
+      editor.instance.addEventListener('change', editor.drawEditor)
+      editor.instance.addEventListener('update', editor.drawEditor)
       if (!brush) {
         editor.instance.theme = theme
         editor.instance.value = [
+          `\`KICK\`
+
+
+import perc from 'dsp/perc'
+export default (t, seq = [1,1,1,1]) =>
+  perc(t, seq, 45, 1.0, 0.3)
+`,
+          `\`KICK ALT\`
+
+
+import kick from './kick'
+export default t =>
+  kick(t, [1,1,1,0])
+`,
+          `\`SNARE\`
+
+
+import snare from 'dsp/hit'
+export default (t, seq = [0,1,0,1]) =>
+  hit(t, seq, 245, 1.0, 0.3, 0.2)
+`,
+          `\`HIHATS\`
+
+
+import snare from 'dsp/hats'
+export default (t, seq = [.2,1]) =>
+  hats(t, 1/16, seq, 1567, 1.0, 0.1)
+`,
+          `\`BASS\`
+
+
+import bass from 'dsp/bass'
+import notes from 'dsp/notes'
+export default (t,
+  seq = notes('- f - a# - - f a#')) =>
+  bass(t, 1/8, seq, [1.0, 0.2], [0.1, 0.8])
+`,
           getEditor,
           resize,
           drawSquares,
           drawGrid,
           isVisibleSquare,
-        ][Math.random() * 0 | 0].toString()
+        ][Math.random() * 5 | 0].toString()
       }
-      editor.drawToSquare()
+      editor.drawEditor()
     }
     return editor
   }
@@ -320,7 +357,7 @@ let cs = [
       screen.zoom + 1
     )
 
-    getEditor(hashPos)?.drawToSquare()
+    getEditor(hashPos)?.drawEditor()
     // context.drawImage(
     //   editor.canvas,
     //   Math.floor(x * screen.zoom + screen.shift.x * screen.zoom) - 1,
@@ -344,7 +381,7 @@ let cs = [
       screen.zoom + 1
     )
 
-    getEditor(hashPos)?.drawToSquare()
+    getEditor(hashPos)?.drawEditor()
     // if (screen.zoom > 100) {
     // }
 
@@ -400,22 +437,28 @@ let cs = [
 
   let brush = false
 
-  const toggleSquare = pos => {
+  const toggleSquare = (pos, noNew = false) => {
     const hashPos = posToHash(pos)
 
     if (hashPos in squares) {
       delete squares[hashPos]
-      brush = editors[hashPos]
-      brush.instance.removeEventListener('change', brush.drawToSquare)
-      brush.instance.removeEventListener('update', brush.drawToSquare)
-      delete editors[hashPos]
-      // clearSquare(hash)
-      // clear()
+      if (hashPos in editors) {
+        brush = editors[hashPos]
+        brush.instance.removeEventListener('change', brush.drawEditor)
+        brush.instance.removeEventListener('update', brush.drawEditor)
+        delete editors[hashPos]
+      }
+      if (focus) {
+        focus.instance.blur()
+        focus = false
+      }
       render()
-    } else {
+    } else if (!noNew) {
       squares[hashPos] = true
-      getEditor(hashPos, brush)
+      brush = getEditor(hashPos, brush)
       drawSquare(hashPos)
+    } else {
+      brush = false
     }
 
     localStorage.squares = JSON.stringify(squares)
@@ -484,7 +527,7 @@ let cs = [
   let zoomStart
   let zoomTimeout
 
-  function handleZoom (e, noUpdate = false) {
+  function handleMouseWheel (e, noUpdate = false) {
     if (focus && !keys.Control) return
     e.preventDefault()
     if (!zoomStart) zoomStart = Date.now()
@@ -519,17 +562,31 @@ let cs = [
 
   let didMove = false
 
-  function handleMove (e) {
-    const hashPos = posToHash({ x: controls.nx, y: controls.ny })
-
-    if (focus === editors[hashPos]) return focus.instance.readMouseMoveEvent(fixEvent(e, focus))
-
-    e.preventDefault()
+  function handleMouseMove (e) {
     if (controls.down) {
       const { x, y, d } = controls.parseMouseEvent(e)
+
+      let hashPos
+
+      clearTimeout(drawingTimeout)
+      if (drawing) {
+        controls.update({ x, y, d })
+        hashPos = posToHash({ x: controls.nx, y: controls.ny })
+        e.preventDefault()
+        if (editors[hashPos]) return
+        toggleSquare({ x: controls.nx, y: controls.ny })
+        return
+      }
+
+      hashPos = posToHash({ x: controls.nx, y: controls.ny })
+      if (focus === editors[hashPos]) {
+        return focus.instance.readMouseMoveEvent(fixEvent(e, focus))
+      }
+
       if (d) {
+        e.preventDefault()
         controls.update({ d })
-        handleZoom(e, true)
+        handleMouseWheel(e, true)
       } else {
         if (timer && Math.abs(x - controls.x) < 6 && Math.abs(y - controls.y) < 6) return
       }
@@ -592,15 +649,24 @@ let cs = [
   }
 
   let focus = false
+  let drawing = false
+  let drawingTimeout
   function handleMouseDown (e) {
     controls.update(controls.parseMouseEvent(e))
     controls.down = true
     timer = performance.now()
     const hashPos = posToHash({ x: controls.nx, y: controls.ny })
 
-    if (controls.which !== 2) {
+    if (controls.which === 1) {
       if (hashPos in editors) {
         if (editors[hashPos] === focus) return focus.instance.readMouseDownEvent(fixEvent(e, focus))
+      } else {
+        drawingTimeout = setTimeout(() => {
+          drawing = true
+          if (!editors[hashPos]) {
+            toggleSquare({ x: controls.nx, y: controls.ny })
+          }
+        }, 500)
       }
     }
     // }
@@ -609,15 +675,26 @@ let cs = [
   function handleMouseUp (e) {
     controls.down = false
 
+    clearTimeout(drawingTimeout)
+    if (drawing) {
+      drawing = false
+      e.preventDefault()
+      return
+    }
+
     // if (focus) return focus.instance.readMouseUpEvent(fixEvent(e, focus))
     const hashPos = posToHash({ x: controls.nx, y: controls.ny })
     if (controls.which === 1) { // left click
+
       if (performance.now() - timer < 200 || focus) {
         if (hashPos in editors) {
           brush = editors[hashPos]
           if (focus === editors[hashPos]) {
             focus.instance.readMouseUpEvent(fixEvent(e, focus))
           } else if (!didMove) {
+            if (focus) {
+              focus.instance.blur()
+            }
             focus = brush = getEditor(hashPos)
             focus.instance.focus()
             focus.instance.readMouseDownEvent(fixEvent(e, focus))
@@ -626,9 +703,10 @@ let cs = [
         } else if (focus && !didMove) {
           focus.instance.blur()
           focus = false
-          brush = false
-        } else {
-          brush = false
+          // brush = false
+        } else if (!didMove) {
+          // brush = false
+          toggleSquare({ x: controls.nx, y: controls.ny })
         }
       }
     } else if (controls.which === 2) {
@@ -637,7 +715,7 @@ let cs = [
         focus.instance.blur()
         focus = false
       }
-      toggleSquare({ x: controls.nx, y: controls.ny })
+      toggleSquare({ x: controls.nx, y: controls.ny }, true)
     }
 
     didMove = false
@@ -660,14 +738,14 @@ let cs = [
         // this.readMouseMoveEvent
   const keys = {}
 
-  window.addEventListener('wheel', handleZoom, { passive: false })
+  window.addEventListener('wheel', handleMouseWheel, { passive: false })
   window.addEventListener('mouseover', handleMouseOver, { passive: false })
   window.addEventListener('mouseout', handleMouseOut, { passive: false })
   window.addEventListener('mousedown', handleMouseDown, { passive: false })
   window.addEventListener('mouseup', handleMouseUp, { passive: false })
   window.addEventListener('touchstart', handleMouseDown, { passive: false })
-  window.addEventListener('mousemove', handleMove, { passive: false })
-  window.addEventListener('touchmove', handleMove, { passive: false })
+  window.addEventListener('mousemove', handleMouseMove, { passive: false })
+  window.addEventListener('touchmove', handleMouseMove, { passive: false })
   window.addEventListener('keydown', handleKeyDown, { passive: false })
   window.addEventListener('keyup', handleKeyUp, { passive: false })
 
