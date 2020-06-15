@@ -199,7 +199,7 @@ export default function yep (el, { onchange } = { onchange: () => {} }) {
           //   editor.instance.setSize(512, 512)
           // }
           let width, height
-          width = height = screen.zoom
+          width = height = Math.floor(screen.zoom)
 
           if (screen.zoom > maxWidth && screen.zoom > maxHeight) {
             if (screen.zoom > maxWidth) {

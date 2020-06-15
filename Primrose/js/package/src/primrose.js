@@ -184,7 +184,7 @@ export class Primrose extends EventTarget {
                         // draw the selection box
                         const inSelection = minCursor.i <= tokenBack.i
                             && tokenFront.i < maxCursor.i;
-                        if (inSelection) {
+                        if (inSelection && focused) {
                             const selectionFront = Cursor.max(minCursor, tokenFront),
                                 selectionBack = Cursor.min(maxCursor, tokenBack),
                                 cw = selectionBack.i - selectionFront.i;
@@ -317,8 +317,8 @@ export class Primrose extends EventTarget {
             }
             tgfx.restore();
 
-            // draw the scrollbars
-            if (showScrollBars) {
+            // draw scrollbars
+            if (showScrollBars && focused) {
                 tgfx.fillStyle = theme.selectedBackColor ||
                     DefaultTheme.selectedBackColor;
 
@@ -630,7 +630,7 @@ export class Primrose extends EventTarget {
                 }
             }
 
-            maxVerticalScroll = Math.max(0, rows.length - gridBounds.height);
+            maxVerticalScroll = Math.max(0, rows.length-2-(+(rows[rows.length-1].text.trim() === ''))); // - gridBounds.height);
 
             render();
         };
@@ -1941,7 +1941,7 @@ export class Primrose extends EventTarget {
         }
         Object.freeze(options);
 
-        Object.seal(this);
+        // Object.seal(this);
         this.readOnly = options.readOnly;
         this.multiLine = options.multiLine;
         this.wordWrap = options.wordWrap;
