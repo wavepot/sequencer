@@ -2,7 +2,7 @@ import State from './state.js'
 import Grid from './grid.js'
 import Mouse from './mouse.js'
 import Editor from './editor.js'
-import { Primrose } from '../Primrose/js/package/index.js'
+import { Primrose } from '../vendor/primrose/js/package/index.js'
 
 export default el => {
   const app = {}

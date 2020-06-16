@@ -1,4 +1,4 @@
-import { Primrose } from '../Primrose/js/package/index.js'
+import { Primrose } from '../vendor/primrose/js/package/index.js'
 
 export const primroseOptions = {
   wordWrap: false,
