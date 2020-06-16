@@ -19,7 +19,8 @@ export default class Grid {
     this.colors = {
       back: '#ddd',
       grid: '#ccc',
-      phrase: '#aaa',
+      phrase: '#bbb',
+      verse: '#999',
       square: '#000',
       pointer: '#000'
     }
@@ -97,11 +98,11 @@ export default class Grid {
 
     // snap to pixels if quick scroll
     // TODO: snap to pixels on debounce
-    if (this.zoom > 22) {
-      if (Date.now() - this.state.zoomStart < 350) {
+    // if (this.zoom > 22) {
+      // if (Date.now() - this.state.zoomStart < 350) {
         this.zoom = Math.round(this.zoom)
-      }
-    }
+      // }
+    // }
 
     this.size.width = this.screen.width / this.zoom
     this.size.height = this.screen.height / this.zoom
@@ -123,26 +124,6 @@ export default class Grid {
     this.ctx.stroke()
   }
 
-  drawSquare ({ x, y }) {
-    this.ctx.fillStyle = this.colors.square
-    this.ctx.fillRect(
-      Math.floor(x * this.zoom + this.shift.x * this.zoom) - 1,
-      Math.floor(y * this.zoom + this.shift.y * this.zoom) - 1,
-      this.zoom + 1,
-      this.zoom + 1
-    )
-  }
-
-  drawSquares () {
-    return [...this.squares]
-      .filter(([pos, _]) => this.isVisiblePos(this.hashToPos(pos)))
-      .map(([pos, element]) => {
-        this.drawSquare(pos)
-        element.draw(this)
-        return [pos, element]
-      })
-  }
-
   drawGrid () {
     this.ctx.save()
     this.ctx.lineWidth = Math.min(1, .02 + this.zoom / 55)
@@ -160,7 +141,9 @@ export default class Grid {
     for (let x = 0; x < this.size.width; x++) {
       this.ctx.strokeStyle = this.colors[
         (x - shift.x) % 4 === 0
-          ? 'phrase'
+          ? (x - shift.x) % 16 === 0
+            ? 'verse'
+            : 'phrase'
           : 'grid'
         ]
       this.drawHorizontalLine(Math.floor(x * this.zoom + offset.x) - .5)
@@ -169,7 +152,9 @@ export default class Grid {
     for (let y = 0; y < this.size.height; y++) {
       this.ctx.strokeStyle = this.colors[
         (y - shift.y) % 4 === 0
-          ? 'phrase'
+          ? (y - shift.y) % 16 === 0
+            ? 'verse'
+            : 'phrase'
           : 'grid'
         ]
       this.drawVerticalLine(Math.floor(y * this.zoom + offset.y) - .5)
@@ -178,12 +163,32 @@ export default class Grid {
     this.ctx.restore()
   }
 
+  drawSquare ({ x, y }) {
+    this.ctx.fillStyle = this.colors.square
+    this.ctx.fillRect(
+      Math.floor(x * this.zoom + this.shift.x * this.zoom) - 1,
+      Math.floor(y * this.zoom + this.shift.y * this.zoom) - 1,
+      this.zoom + 1,
+      this.zoom + 1
+    )
+  }
+
+  drawSquares () {
+    return [...this.squares]
+      .filter(([pos, _]) => this.isVisiblePos(this.hashToPos(pos)))
+      .map(([pos, element]) => {
+        this.drawSquare(this.hashToPos(pos))
+        element.draw(this)
+        return [pos, element]
+      })
+  }
+
   isVisiblePos ({ x, y }) {
     return (
       x >= Math.floor(-this.shift.x) &&
       y >= Math.floor(-this.shift.y) &&
-      x <= Math.ceil(-this.shift.x + this.size.width) &&
-      y <= Math.ceil(-this.shift.y + this.size.height)
+      x < Math.ceil(-this.shift.x + this.size.width) &&
+      y < Math.ceil(-this.shift.y + this.size.height)
     )
   }
 
@@ -210,6 +215,7 @@ export default class Grid {
     this.squares.set(hashPos, element)
     this.render()
     this.saveSquares()
+    return element
   }
 
   removeSquare (pos) {

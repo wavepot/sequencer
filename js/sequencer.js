@@ -94,7 +94,7 @@ export default el => {
 
         mouse.update({ x, y, d })
         if (!grid.hasSquare(mouse.square)) {
-          grid.addSquare(mouse.square)
+          state.brush = grid.addSquare(mouse.square)
         }
         return
       }
@@ -154,7 +154,7 @@ export default el => {
         state.drawingTimeout = setTimeout(() => {
           state.drawing = true
           if (!grid.hasSquare(mouse.square)) {
-            grid.addSquare(mouse.square)
+            state.brush = grid.addSquare(mouse.square)
           }
         }, 500)
       }
@@ -192,7 +192,7 @@ export default el => {
           state.focus.instance.blur()
           state.focus = null
         } else if (!state.didMove) {
-          grid.addSquare(mouse.square)
+          state.brush = grid.addSquare(mouse.square)
         }
       }
     } else if (mouse.which === 2) {

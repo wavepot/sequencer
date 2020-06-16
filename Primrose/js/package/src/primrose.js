@@ -715,7 +715,7 @@ export class Primrose extends EventTarget {
                 focused = false;
                 focusedControl = null;
                 this.dispatchEvent(blurEvt);
-                // render();
+                render();
                 refreshBuffers();
             }
         };

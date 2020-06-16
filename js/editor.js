@@ -11,7 +11,7 @@ export const theme = {
   },
   regular: {
     backColor: 'black',
-    foreColor: '#999'
+    foreColor: '#ccc'
   },
   strings: {
     foreColor: '#fff',
@@ -26,23 +26,23 @@ export const theme = {
   comments: {
     foreColor: '#555',
   },
-    keywords: {
-    foreColor: '#fff'
+  keywords: {
+    foreColor: '#666'
   },
-    operators: {
+  operators: {
     foreColor: '#ccc'
   },
   symbol: {
     foreColor: '#ccc'
   },
   declare: {
-    foreColor: '#fff'
+    foreColor: '#ddd'
   },
   functions: {
-    foreColor: '#fff',
+    foreColor: '#ddd',
   },
   special: {
-    foreColor: '#fff',
+    foreColor: '#ddd',
   },
   members: {
     foreColor: '#aaa'
@@ -64,12 +64,10 @@ export const primroseOptions = {
 }
 
 export default class Editor {
-  static createInstance (value) {
-    const instance = new Primrose({
-      theme,
-      ...primroseOptions
-    })
-    if (value) instance.value = value
+  static createInstance (value = '') {
+    const instance = new Primrose(primroseOptions)
+    instance.theme = theme
+    instance.value = value
     return instance
   }
 
@@ -79,8 +77,6 @@ export default class Editor {
     this.instance.id = this.id
     this.square = square
     this.offset = { x: 0, y: 0 }
-    this.curr = { width: 512, height: 512 }
-    this.prev = { width: 512, height: 512 }
     this.scale = 1
     this.zoomThreshold = 1300
     // TODO: change?
@@ -100,49 +96,17 @@ export default class Editor {
   }
 
   draw (grid) {
+    if (grid.zoom < 14) return
     const { x, y } = this.square
     const screen = grid.screen
+    const larger = Math.max(screen.width, screen.height)
 
-    let width, height
-    width = height = Math.floor(grid.zoom)
-
-    if (grid.zoom > screen.width && grid.zoom > screen.height) {
-      if (grid.zoom > screen.width) {
-        if (grid.zoom - screen.width > this.zoomThreshold) {
-          this.scale = screen.width / (grid.zoom - this.zoomThreshold)
-        }
-      } else {
-        if (grid.zoom - screen.height > this.zoomThreshold) {
-          this.scale = screen.height / (grid.zoom - this.zoomThreshold)
-        }
-      }
-
-      this.curr = {
-        width: Math.min(width, screen.width) * this.scale,
-        height: Math.min(height, screen.height) * this.scale
-      }
-
-      if (this.curr.width !== this.prev.width || this.curr.height !== this.prev.height) {
-        this.instance.setSize(this.curr.width, this.curr.height)
-        this.prev = this.curr
-      }
-
-      width = Math.min(width, screen.width)
-      height = Math.min(height, screen.height)
-    } else {
-      this.curr = {
-        width: Math.min(grid.zoom, screen.width),
-        height: Math.min(grid.zoom, screen.height)
-      }
-
-      width = this.curr.width
-      height = this.curr.height
-
-      if (this.curr.width !== this.prev.width || this.curr.height !== this.prev.height) {
-        this.instance.setSize(this.curr.width, this.curr.height)
-        this.prev = this.curr
-      }
+    this.scale = 1
+    if (grid.zoom - this.zoomThreshold > larger) {
+      this.scale = larger / (grid.zoom - this.zoomThreshold)
     }
+
+    this.instance.setSize(grid.zoom * this.scale, grid.zoom * this.scale)
 
     this.offset = {
       x: Math.floor(x * grid.zoom + grid.shift.x * grid.zoom),
@@ -154,8 +118,8 @@ export default class Editor {
       this.instance.canvas,
       this.offset.x,
       this.offset.y,
-      width,
-      height
+      grid.zoom,
+      grid.zoom
     )
   }
 }
