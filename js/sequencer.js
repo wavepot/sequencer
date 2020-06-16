@@ -253,6 +253,25 @@ export default el => {
         state.focus = null
       }
     }
+    if (keys.Alt) {
+      if (state.focus) {
+        // TODO: if focused element is out of view,
+        // move screen and put it into view
+        // i.e generic solution: never let focused elements out of view
+        const { x, y } = state.focus.square
+        let focus
+        if (keys.a)      focus = grid.getSquare({ x: x-1, y }) // left
+        else if (keys.d) focus = grid.getSquare({ x: x+1, y }) // right
+        else if (keys.w) focus = grid.getSquare({ x, y: y-1 }) // up
+        else if (keys.s) focus = grid.getSquare({ x, y: y+1 }) // down
+        if (focus) {
+          e.preventDefault()
+          state.focus.blur()
+          state.focus = focus
+          state.focus.focus()
+        }
+      }
+    }
   }
 
   const handleKeyUp = e => {
