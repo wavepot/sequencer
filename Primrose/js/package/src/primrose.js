@@ -715,7 +715,7 @@ export class Primrose extends EventTarget {
                 focused = false;
                 focusedControl = null;
                 this.dispatchEvent(blurEvt);
-                render();
+                // render();
                 refreshBuffers();
             }
         };
@@ -1687,7 +1687,7 @@ export class Primrose extends EventTarget {
                     if (s !== fontSize) {
                         fontSize = s;
                         context.font = `${fontSize}px ${monospaceFamily}`;
-                        character.height = fontSize;
+                        character.height = fontSize - 2;
                         // measure 100 letter M's, then divide by 100, to get the width of an M
                         // to two decimal places on systems that return integer values from
                         // measureText.

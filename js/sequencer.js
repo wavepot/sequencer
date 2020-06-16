@@ -2,6 +2,7 @@ import State from './state.js'
 import Grid from './grid.js'
 import Mouse from './mouse.js'
 import Editor from './editor.js'
+import { Primrose } from '../Primrose/js/package/index.js'
 
 export default el => {
   const app = {}
@@ -20,6 +21,7 @@ export default el => {
         editor.instance.addEventListener('change', () => {
           localStorage.setItem(editor.id, editor.instance.value)
         })
+        Primrose.add(app, editor.instance)
         editors.set(id, editor.instance)
         return editor
       } else {
@@ -31,6 +33,7 @@ export default el => {
         editor.instance.addEventListener('change', () => {
           localStorage.setItem(editor.id, editor.instance.value)
         })
+        Primrose.add(app, editor.instance)
         editors.set(editor.id, editor.instance)
       }
       return editor
@@ -181,15 +184,15 @@ export default el => {
             state.focus.instance.readMouseUpEvent(fixEvent(e))
           } else if (!state.didMove) {
             if (state.focus) {
-              state.focus.instance.blur()
+              state.focus.blur()
             }
             state.focus = state.brush = square
-            state.focus.instance.focus()
+            state.focus.focus()
             state.focus.instance.readMouseDownEvent(fixEvent(e))
             state.focus.instance.readMouseUpEvent(fixEvent(e))
           }
         } else if (state.focus && !state.didMove) {
-          state.focus.instance.blur()
+          state.focus.blur()
           state.focus = null
         } else if (!state.didMove) {
           state.brush = grid.addSquare(mouse.square)
@@ -199,7 +202,7 @@ export default el => {
       e.preventDefault() // prevent operating system from doing paste on middle click
       const square = grid.getSquare(mouse.square)
       if (state.focus && state.focus !== square) {
-        state.focus.instance.blur()
+        state.focus.blur()
         state.focus = null
       }
       // if there is a square, save it in brush
@@ -235,7 +238,7 @@ export default el => {
     if (keys.Escape) {
       if (state.focus) {
         e.preventDefault()
-        state.focus.instance.blur()
+        state.focus.blur()
         state.focus = null
       }
     }

@@ -1,5 +1,15 @@
 import { Primrose } from '../Primrose/js/package/index.js'
 
+export const primroseOptions = {
+  wordWrap: false,
+  lineNumbers: false,
+  fontSize: 16,
+  padding: 0,
+  width: 512,
+  height: 512,
+  scaleFactor: 1
+}
+
 export const theme = {
   name: 'Darker',
   cursorColor: 'white',
@@ -53,16 +63,6 @@ export const theme = {
   }
 }
 
-export const primroseOptions = {
-  wordWrap: false,
-  lineNumbers: false,
-  fontSize: 16,
-  padding: 0,
-  width: 512,
-  height: 512,
-  scaleFactor: 1
-}
-
 export default class Editor {
   static createInstance (value = '') {
     const instance = new Primrose(primroseOptions)
@@ -75,15 +75,20 @@ export default class Editor {
     this.id = instance?.id ?? (Math.random() * 10e6 | 0).toString(36)
     this.instance = instance?.id ? instance : Editor.createInstance(instance)
     this.instance.id = this.id
+    this.updateId = this.instance.updateId = this.instance.updateId ?? 0
     this.square = square
     this.offset = { x: 0, y: 0 }
     this.scale = 1
     this.zoomThreshold = 1300
-    // TODO: change?
-    // this.instance.addEventListener('change', this.updateListener)
-
-    this.updateListener = this.draw.bind(this, grid)
-    this.instance.addEventListener('update', this.updateListener)
+    this.drawListener = this.draw.bind(this, grid)
+    this.drawMicrotaskScheduled = false
+    this.drawDebounce = () => {
+      if (!this.drawMicrotaskScheduled) {
+        this.drawMicrotaskScheduled = true
+        queueMicrotask(this.drawListener)
+      }
+    }
+    this.instance.addEventListener('update', this.drawDebounce)
   }
 
   toJSON () {
@@ -91,22 +96,36 @@ export default class Editor {
   }
 
   destroy () {
-    // this.instance.removeEventListener('change', this.updateListener)
-    this.instance.removeEventListener('update', this.updateListener)
+    this.instance.removeEventListener('update', this.drawListener)
+  }
+
+  focus () {
+    this.instance.focus()
+  }
+
+  blur () {
+    this.instance.blur()
   }
 
   draw (grid) {
+    this.drawMicrotaskScheduled = false
     if (grid.zoom < 14) return
     const { x, y } = this.square
-    const screen = grid.screen
-    const larger = Math.max(screen.width, screen.height)
 
-    this.scale = 1
-    if (grid.zoom - this.zoomThreshold > larger) {
-      this.scale = larger / (grid.zoom - this.zoomThreshold)
+    if (this.instance.updateId === this.updateId) {
+      this.instance.updateId++
+
+      const screen = grid.screen
+      const larger = Math.max(screen.width, screen.height)
+
+      this.scale = 1
+      if (grid.zoom - this.zoomThreshold > larger) {
+        this.scale = larger / (grid.zoom - this.zoomThreshold)
+      }
+
+      this.instance.setSize(grid.zoom * this.scale, grid.zoom * this.scale)
     }
-
-    this.instance.setSize(grid.zoom * this.scale, grid.zoom * this.scale)
+    this.updateId = this.instance.updateId
 
     this.offset = {
       x: Math.floor(x * grid.zoom + grid.shift.x * grid.zoom),
