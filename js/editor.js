@@ -96,7 +96,7 @@ export default class Editor {
   }
 
   destroy () {
-    this.instance.removeEventListener('update', this.drawListener)
+    this.instance.removeEventListener('update', this.drawDebounce)
   }
 
   focus () {
@@ -111,6 +111,8 @@ export default class Editor {
     this.drawMicrotaskScheduled = false
     if (grid.zoom < 14) return
     const { x, y } = this.square
+    let { zoom } = grid
+    zoom = Math.ceil(zoom)
 
     if (this.instance.updateId === this.updateId) {
       this.instance.updateId++
@@ -119,11 +121,12 @@ export default class Editor {
       const larger = Math.max(screen.width, screen.height)
 
       this.scale = 1
-      if (grid.zoom - this.zoomThreshold > larger) {
-        this.scale = larger / (grid.zoom - this.zoomThreshold)
+      // TODO: do this on zoom rest instead
+      if (zoom - this.zoomThreshold > larger) {
+        this.scale = larger / (zoom - this.zoomThreshold)
       }
 
-      this.instance.setSize(grid.zoom * this.scale, grid.zoom * this.scale)
+      this.instance.setSize(zoom * this.scale, zoom * this.scale)
     }
     this.updateId = this.instance.updateId
 
@@ -137,8 +140,8 @@ export default class Editor {
       this.instance.canvas,
       this.offset.x,
       this.offset.y,
-      grid.zoom,
-      grid.zoom
+      zoom,
+      zoom
     )
   }
 }

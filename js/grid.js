@@ -100,7 +100,7 @@ export default class Grid {
     // TODO: snap to pixels on debounce
     // if (this.zoom > 22) {
       // if (Date.now() - this.state.zoomStart < 350) {
-        this.zoom = Math.round(this.zoom)
+        // this.zoom = Math.round(this.zoom)
       // }
     // }
 

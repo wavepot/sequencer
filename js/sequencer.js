@@ -11,7 +11,7 @@ export default el => {
 
   const editors = app.editors = new Map
   const state = app.state = State()
-  const grid = app.grid = new Grid(app, function (square, id) {
+  const grid = app.grid = new Grid(app, function (square, id, value) {
     if (id) {
       let instance = editors.get(id)
       if (!instance) {
@@ -28,7 +28,14 @@ export default el => {
         return new Editor(this, square, instance)
       }
     } else {
-      const editor = new Editor(this, square, state.brush?.instance)
+      const editor = new Editor(
+        this,
+        square,
+        // drawing with shift key pressed makes a clone, otherwise a mirror
+        state.keys.Shift
+          ? state.brush?.instance.value
+          : state.brush?.instance
+      )
       if (!editors.has(editor.id)) {
         editor.instance.addEventListener('change', () => {
           localStorage.setItem(editor.id, editor.instance.value)
@@ -210,6 +217,10 @@ export default el => {
       if (square) {
         state.brush = square
         grid.removeSquare(mouse.square)
+        if (state.keys.Shift) { // if shift is pressed, replace with clone and focus
+          grid.addSquare(mouse.square).focus()
+          // TODO: copy also caret/scroll position
+        }
       } else {
         // if there isn't a square, clear brush
         state.brush = null
