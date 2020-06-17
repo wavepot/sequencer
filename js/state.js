@@ -12,4 +12,6 @@ export default () => ({
   drawingTimeout: null,
 
   dragTimer: 0,
+
+  litColumn: 2
 })

@@ -22,7 +22,8 @@ export default class Grid {
       phrase: '#bbb',
       verse: '#999',
       square: '#000',
-      pointer: '#000'
+      pointer: '#000',
+      lit: '#d8d8d8',
     }
     this.resize(true)
   }
@@ -110,17 +111,17 @@ export default class Grid {
     this.saveState()
   }
 
-  drawHorizontalLine (x) {
-    this.ctx.beginPath()
-    this.ctx.moveTo(x, 0)
-    this.ctx.lineTo(x, this.screen.height)
-    this.ctx.stroke()
-  }
-
-  drawVerticalLine (y) {
+  drawHorizontalLine (y) {
     this.ctx.beginPath()
     this.ctx.moveTo(0, y)
     this.ctx.lineTo(this.screen.width, y)
+    this.ctx.stroke()
+  }
+
+  drawVerticalLine (x) {
+    this.ctx.beginPath()
+    this.ctx.moveTo(x, 0)
+    this.ctx.lineTo(x, this.screen.height)
     this.ctx.stroke()
   }
 
@@ -139,6 +140,10 @@ export default class Grid {
     }
 
     for (let x = 0; x < this.size.width; x++) {
+      if (x - shift.x === this.state.litColumn) {
+        this.ctx.fillStyle = this.colors.lit
+        this.ctx.fillRect(Math.floor(x * this.zoom + offset.x), 0, this.zoom, this.screen.height)
+      }
       this.ctx.strokeStyle = this.colors[
         (x - shift.x) % 4 === 0
           ? (x - shift.x) % 16 === 0
@@ -146,7 +151,7 @@ export default class Grid {
             : 'phrase'
           : 'grid'
         ]
-      this.drawHorizontalLine(Math.floor(x * this.zoom + offset.x) - .5)
+      this.drawVerticalLine(Math.floor(x * this.zoom + offset.x) - .5)
     }
 
     for (let y = 0; y < this.size.height; y++) {
@@ -157,7 +162,7 @@ export default class Grid {
             : 'phrase'
           : 'grid'
         ]
-      this.drawVerticalLine(Math.floor(y * this.zoom + offset.y) - .5)
+      this.drawHorizontalLine(Math.floor(y * this.zoom + offset.y) - .5)
     }
 
     this.ctx.restore()

@@ -301,4 +301,12 @@ export default el => {
   grid.load()
   grid.render()
   el.appendChild(grid.canvas)
+
+  return {
+    editors,
+    highlightColumn (col) {
+      state.litColumn = col
+      grid.render()
+    }
+  }
 }
