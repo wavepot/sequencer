@@ -95,7 +95,7 @@ export default el => {
   }
 
   const handleMouseMove = e => {
-    if (mouse.down) {
+    if (mouse.down === 1) {
       const { x, y, d } = mouse.parseEvent(e)
 
       clearTimeout(state.drawingTimeout)
@@ -144,16 +144,44 @@ export default el => {
       mouse.update({ x, y, d })
 
       grid.render()
+    } else if (mouse.down === 3) {
+      if (!state.focus) {
+        e.preventDefault()
+        mouse.update(mouse.parseEvent(e))
+        maybeRemoveSquare(mouse.square)
+      }
+    }
+  }
+
+  const maybeRemoveSquare = pos => {
+    const square = grid.getSquare(pos)
+    if (state.focus && state.focus !== square) {
+      state.focus.blur()
+      state.focus = null
+    }
+    // if there is a square, save it in brush
+    // and remove it
+    if (square) {
+      state.brush = square
+      grid.removeSquare(mouse.square)
+      if (state.keys.Shift) { // if shift is pressed, replace with clone and focus
+        grid.addSquare(mouse.square).focus()
+        // TODO: copy also caret/scroll position
+      }
+    } else {
+      // if there isn't a square, clear brush
+      state.brush = null
     }
   }
 
   const handleMouseDown = e => {
     mouse.update(mouse.parseEvent(e))
-    mouse.down = true
+    mouse.down = mouse.which
 
-    state.dragTimer = performance.now()
+    e.preventDefault()
 
     if (mouse.which === 1) {
+      state.dragTimer = performance.now()
       // mouse down on active square
       if (grid.hasSquare(mouse.square)) {
         // mouse down on focused squard, delegate event to it
@@ -170,11 +198,15 @@ export default el => {
           }
         }, 500)
       }
+    } else if (mouse.which === 3) {
+      if (!state.focus) {
+        maybeRemoveSquare(mouse.square)
+      }
     }
   }
 
   const handleMouseUp = e => {
-    mouse.down = false
+    mouse.down = 0
 
     clearTimeout(state.drawingTimeout)
     if (state.drawing) {
@@ -184,7 +216,6 @@ export default el => {
     }
 
     if (mouse.which === 1) { // left click
-
       if (performance.now() - state.dragTimer < 200 || state.focus) {
         if (grid.hasSquare(mouse.square)) {
           const square = grid.getSquare(mouse.square)
@@ -206,26 +237,6 @@ export default el => {
         } else if (!state.didMove) {
           state.brush = grid.addSquare(mouse.square)
         }
-      }
-    } else if (mouse.which === 2) {
-      e.preventDefault() // prevent operating system from doing paste on middle click
-      const square = grid.getSquare(mouse.square)
-      if (state.focus && state.focus !== square) {
-        state.focus.blur()
-        state.focus = null
-      }
-      // if there is a square, save it in brush
-      // and remove it
-      if (square) {
-        state.brush = square
-        grid.removeSquare(mouse.square)
-        if (state.keys.Shift) { // if shift is pressed, replace with clone and focus
-          grid.addSquare(mouse.square).focus()
-          // TODO: copy also caret/scroll position
-        }
-      } else {
-        // if there isn't a square, clear brush
-        state.brush = null
       }
     }
 
@@ -260,6 +271,7 @@ export default el => {
         // TODO: if focused element is out of view,
         // move screen and put it into view
         // i.e generic solution: never let focused elements out of view
+        // or never move out of current focus
         const { x, y } = state.focus.square
         let focus
         if (keys.a)      focus = grid.getSquare({ x: x-1, y }) // left
@@ -286,6 +298,12 @@ export default el => {
     grid.render()
   }
 
+  const handleContextMenu = e => {
+    if (!state.focus) {
+      e.preventDefault()
+    }
+  }
+
   window.addEventListener('resize', handleWindowResize, { passive: false })
 
   window.addEventListener('wheel', handleMouseWheel, { passive: false })
@@ -296,6 +314,7 @@ export default el => {
   window.addEventListener('mousemove', handleMouseMove, { passive: false })
   window.addEventListener('touchmove', handleMouseMove, { passive: false })
   window.addEventListener('touchstart', handleMouseDown, { passive: false })
+  window.addEventListener('contextmenu', handleContextMenu, { passive: false })
 
   window.addEventListener('keydown', handleKeyDown, { passive: false })
   window.addEventListener('keyup', handleKeyUp, { passive: false })
