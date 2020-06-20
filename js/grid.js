@@ -179,13 +179,17 @@ export default class Grid {
   }
 
   drawSquares () {
-    return [...this.squares]
-      .filter(([pos, _]) => this.isVisiblePos(this.hashToPos(pos)))
+    return this.getVisibleSquares()
       .map(([pos, element]) => {
         this.drawSquare(this.hashToPos(pos))
         element.draw(this)
         return [pos, element]
       })
+  }
+
+  getVisibleSquares () {
+    return [...this.squares]
+      .filter(([pos, _]) => this.isVisiblePos(this.hashToPos(pos)))
   }
 
   isVisiblePos ({ x, y }) {
