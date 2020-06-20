@@ -3,8 +3,9 @@ const offsetOf = v => v >= 0 ? v - Math.floor(v) : 1 - offsetOf(-v)
 let gridValues = new Set
 
 export default class Grid {
-  constructor ({ state }, squareFactory) {
+  constructor ({ state }, storage, squareFactory) {
     this.state = state
+    this.storage = storage
     this.squares = new Map
     this.squareFactory = squareFactory
     this.canvas = document.createElement('canvas')
@@ -29,11 +30,11 @@ export default class Grid {
   }
 
   load () {
-    const gridState = JSON.parse(localStorage.gridState ?? '{}')
+    const gridState = JSON.parse(this.storage.getItem('gridState') ?? '{}')
     this.setShift(gridState.shift ?? this.shift)
     this.setScale(gridState.scale ?? this.scale)
 
-    const gridSquares = JSON.parse(localStorage.gridSquares ?? '[]')
+    const gridSquares = JSON.parse(this.storage.getItem('gridSquares') ?? '[]')
     this.squares = new Map(gridSquares)
     for (const [square, id] of this.squares) {
       this.squares.set(square, this.squareFactory(this.hashToPos(square), id))
@@ -41,11 +42,11 @@ export default class Grid {
   }
 
   saveState () {
-    localStorage.gridState = JSON.stringify(this)
+    this.storage.setItem('gridState', JSON.stringify(this))
   }
 
   saveSquares () {
-    localStorage.gridSquares = JSON.stringify([...this.squares])
+    this.storage.setItem('gridSquares', JSON.stringify([...this.squares]))
   }
 
   toJSON () {
@@ -73,7 +74,7 @@ export default class Grid {
   }
 
   setScale (scale) {
-    this.scale = localStorage.scale =
+    this.scale =
       Math.max(
         Math.log(2),
         Math.min(

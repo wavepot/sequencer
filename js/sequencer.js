@@ -4,22 +4,22 @@ import Mouse from './mouse.js'
 import Editor from './editor.js'
 import { Primrose } from 'primrose'
 
-export default el => {
+export default (el, storage) => {
   const app = new EventTarget
 
   if (window.DEBUG) window.app = app
 
   const editors = app.editors = new Map
   const state = app.state = State()
-  const grid = app.grid = new Grid(app, function (square, id, value) {
+  const grid = app.grid = new Grid(app, storage, function (square, id, value) {
     if (id) {
       let instance = editors.get(id)
       if (!instance) {
-        const editor = new Editor(this, square, localStorage.getItem(id))
+        const editor = new Editor(this, square, storage.getItem(id))
         editor.id = id
         editor.instance.id = id
         editor.instance.addEventListener('change', () => {
-          localStorage.setItem(editor.id, editor.instance.value)
+          storage.setItem(editor.id, editor.instance.value)
           app.dispatchEvent(new CustomEvent('change', { detail: editor }))
         })
         Primrose.add(app, editor.instance)
@@ -32,18 +32,19 @@ export default el => {
       const editor = new Editor(
         this,
         square,
-        // drawing with shift key pressed makes a clone, otherwise a mirror
-        state.keys.Shift
+        // middle click makes a clone, otherwise a mirror
+        mouse.which === 2
           ? state.brush?.instance.value
           : state.brush?.instance
       )
       if (!editors.has(editor.id)) {
         editor.instance.addEventListener('change', () => {
-          localStorage.setItem(editor.id, editor.instance.value)
+          storage.setItem(editor.id, editor.instance.value)
           app.dispatchEvent(new CustomEvent('change', { detail: editor }))
         })
         Primrose.add(app, editor.instance)
         editors.set(editor.id, editor.instance)
+        storage.setItem(editor.id, editor.instance.value)
       }
       return editor
     }
