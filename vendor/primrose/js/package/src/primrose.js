@@ -2094,7 +2094,7 @@ withCurrentControl("Cut");
 withCurrentControl("Paste");
 
 window.addEventListener("wheel", (evt) => {
-    const control = focusedControl || hoveredControl;
+    const control = focusedControl //|| hoveredControl;
     if (control !== null) {
         control.readWheelEvent(evt);
     }
