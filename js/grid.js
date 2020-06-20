@@ -24,7 +24,7 @@ export default class Grid {
       verse: '#999',
       square: '#000',
       pointer: '#000',
-      lit: '#d8d8d8',
+      lit: '#d2d2d2',
     }
     this.resize(true)
   }
