@@ -323,11 +323,10 @@ export default el => {
   grid.render()
   el.appendChild(grid.canvas)
 
-  return {
-    editors,
-    highlightColumn (col) {
-      state.litColumn = col
-      grid.render()
-    }
+  app.highlightColumn = col => {
+    state.litColumn = col
+    grid.render()
   }
+
+  return app
 }
