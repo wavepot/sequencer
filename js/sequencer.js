@@ -165,10 +165,6 @@ export default (el, storage) => {
     if (square) {
       state.brush = square
       grid.removeSquare(mouse.square)
-      if (state.keys.Shift) { // if shift is pressed, replace with clone and focus
-        grid.addSquare(mouse.square).focus()
-        // TODO: copy also caret/scroll position
-      }
     } else {
       // if there isn't a square, clear brush
       state.brush = null
@@ -238,6 +234,18 @@ export default (el, storage) => {
         } else if (!state.didMove) {
           state.brush = grid.addSquare(mouse.square)
         }
+      }
+    } else if (mouse.which === 2) {
+      e.preventDefault()
+      const square = grid.getSquare(mouse.square)
+      // make clone
+      if (square) { // if shift is pressed, replace with clone and focus
+        state.brush = square
+        grid.removeSquare(mouse.square)
+        if (state.focus) state.focus.blur()
+        state.focus = grid.addSquare(mouse.square)
+        state.focus.focus()
+        // TODO: copy also caret/scroll position
       }
     }
 
