@@ -190,7 +190,12 @@ export default class Grid {
 
   getVisibleSquares () {
     return [...this.squares]
-      .filter(([pos, _]) => this.isVisiblePos(this.hashToPos(pos)))
+      .filter(([pos]) => this.isVisiblePos(this.hashToPos(pos)))
+  }
+
+  getAudibleSquares () {
+    return [...this.squares]
+      .filter(([pos]) => this.isAudiblePos(this.hashToPos(pos)))
   }
 
   isVisiblePos ({ x, y }) {
@@ -204,10 +209,10 @@ export default class Grid {
 
   isAudiblePos ({ x, y }) {
     return (
-      x > Math.floor(-this.shift.x) &&
-      y > Math.floor(-this.shift.y) &&
-      x < Math.floor(-this.shift.x + this.size.width) &&
-      y < Math.floor(-this.shift.y + this.size.height)
+      x >= Math.ceil(-this.shift.x) &&
+      y >= Math.ceil(-this.shift.y) &&
+      Math.floor(x + Math.min(1, this.size.width)) <= Math.floor(-this.shift.x + this.size.width) &&
+      Math.floor(y + Math.min(1, this.size.height)) <= Math.floor(-this.shift.y + this.size.height)
     )
   }
 
