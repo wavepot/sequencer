@@ -5,7 +5,7 @@ import Editor from './editor.js'
 import { Primrose } from 'primrose'
 
 export default el => {
-  const app = {}
+  const app = new EventTarget
 
   if (window.DEBUG) window.app = app
 
@@ -20,6 +20,7 @@ export default el => {
         editor.instance.id = id
         editor.instance.addEventListener('change', () => {
           localStorage.setItem(editor.id, editor.instance.value)
+          app.dispatchEvent(new CustomEvent('change', { detail: editor }))
         })
         Primrose.add(app, editor.instance)
         editors.set(id, editor.instance)
@@ -39,6 +40,7 @@ export default el => {
       if (!editors.has(editor.id)) {
         editor.instance.addEventListener('change', () => {
           localStorage.setItem(editor.id, editor.instance.value)
+          app.dispatchEvent(new CustomEvent('change', { detail: editor }))
         })
         Primrose.add(app, editor.instance)
         editors.set(editor.id, editor.instance)
