@@ -172,6 +172,8 @@ export default (el, storage) => {
   }
 
   const handleMouseDown = e => {
+    if (state.background) return
+
     mouse.update(mouse.parseEvent(e))
     mouse.down = mouse.which
 
@@ -308,10 +310,18 @@ export default (el, storage) => {
   }
 
   const handleContextMenu = e => {
-    if (!state.focus) {
-      e.preventDefault()
+    e.preventDefault()
+    if (state.focus) {
+      state.focus.blur()
+      state.focus = null
     }
   }
+
+  // the two events below prevent clicks to be handled when clicking into
+  // an out of focus window to bring it to focus, and therefore prevent
+  // unwanted paints
+  window.addEventListener('blur', () => state.background = true)
+  window.addEventListener('focus', () => setTimeout(() => state.background = false, 300))
 
   window.addEventListener('resize', handleWindowResize, { passive: false })
 

@@ -112,7 +112,7 @@ export default class Editor {
     if (grid.zoom < 14) return
     const { x, y } = this.square
     let { zoom } = grid
-    zoom = Math.ceil(zoom)
+    zoom = Math.floor(zoom)
 
     if (this.instance.updateId === this.updateId) {
       this.instance.updateId++

@@ -174,8 +174,8 @@ export default class Grid {
     this.ctx.fillRect(
       Math.floor(x * this.zoom + this.shift.x * this.zoom) - 1,
       Math.floor(y * this.zoom + this.shift.y * this.zoom) - 1,
-      this.zoom + 1,
-      this.zoom + 1
+      Math.round(this.zoom) + 1,
+      Math.round(this.zoom) + 1
     )
   }
 
