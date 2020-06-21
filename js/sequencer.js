@@ -270,6 +270,43 @@ export default (el, storage) => {
     const { keys } = state
     keys[e.key] = true
 
+    if (keys.Control) {
+      if (keys.s) {
+        e.preventDefault()
+        e.stopPropagation()
+        if (state.focus) {
+          app.dispatchEvent(new CustomEvent('save', { detail: state.focus }))
+        } else {
+          const fullState = JSON.stringify({
+            gridState: JSON.stringify(grid),
+            gridSquares: JSON.stringify([...grid.squares]),
+            ...Object.fromEntries([...editors].map(([id, instance]) => [id, instance.value]))
+          }, null, 2)
+          app.dispatchEvent(new CustomEvent('export', { detail: fullState }))
+          keys.Control = false
+          keys.s = false
+        }
+      }
+      if (keys.o) {
+        e.preventDefault()
+        e.stopPropagation()
+        app.dispatchEvent(new CustomEvent('import'))
+        keys.Control = false
+        keys.o = false
+      }
+    }
+    if (!state.focus || keys.Control) {
+      if (keys[' ']) {
+        e.preventDefault()
+        e.stopPropagation()
+        app.dispatchEvent(new CustomEvent('play'))
+      }
+      if (keys.Enter) {
+        e.preventDefault()
+        e.stopPropagation()
+        app.dispatchEvent(new CustomEvent('pause'))
+      }
+    }
     if (keys.Escape) {
       if (state.focus) {
         e.preventDefault()
@@ -320,9 +357,16 @@ export default (el, storage) => {
   // the two events below prevent clicks to be handled when clicking into
   // an out of focus window to bring it to focus, and therefore prevent
   // unwanted paints
-  window.addEventListener('blur', () => state.background = true)
-  window.addEventListener('focus', () => setTimeout(() => state.background = false, 300))
+  const handleWindowBlur = e => {
+    state.background = true
+  }
 
+  const handleWindowFocus = e => {
+    setTimeout(() => state.background = false, 300)
+  }
+
+  window.addEventListener('blur', handleWindowBlur, { passive: false })
+  window.addEventListener('focus', handleWindowFocus, { passive: false })
   window.addEventListener('resize', handleWindowResize, { passive: false })
 
   window.addEventListener('wheel', handleMouseWheel, { passive: false })
@@ -339,12 +383,34 @@ export default (el, storage) => {
   window.addEventListener('keyup', handleKeyUp, { passive: false })
 
   grid.load()
+  grid.saveState()
+  grid.saveSquares()
   grid.render()
   el.appendChild(grid.canvas)
 
   app.highlightColumn = col => {
     state.litColumn = col
     grid.render()
+  }
+
+  app.destroy = () => {
+    window.removeEventListener('blur', handleWindowBlur)
+    window.removeEventListener('focus', handleWindowFocus)
+    window.removeEventListener('resize', handleWindowResize)
+
+    window.removeEventListener('wheel', handleMouseWheel)
+    window.removeEventListener('mousedown', handleMouseDown)
+    window.removeEventListener('mouseup', handleMouseUp)
+    window.removeEventListener('mouseover', handleMouseOver)
+    window.removeEventListener('mouseout', handleMouseOut)
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('touchmove', handleMouseMove)
+    window.removeEventListener('touchstart', handleMouseDown)
+    window.removeEventListener('contextmenu', handleContextMenu)
+
+    window.removeEventListener('keydown', handleKeyDown)
+    window.removeEventListener('keyup', handleKeyUp)
+    el.removeChild(grid.canvas)
   }
 
   return app
